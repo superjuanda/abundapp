@@ -286,6 +286,22 @@ header .header-text p{font-size:.8rem;opacity:.85;font-weight:500;line-height:1.
 .btn-edit{background:#E8F5E9;color:var(--primary-dark)}
 .btn-delete{background:#ffebee;color:var(--danger)}
 
+/* ── Sync button ── */
+.btn-sync{
+  display:flex;align-items:center;justify-content:center;gap:.5rem;
+  width:100%;padding:.65rem 1.2rem;
+  background:var(--card);border:1.5px solid var(--border);
+  border-radius:var(--radius-sm);
+  color:var(--text-muted);font-size:.84rem;font-family:inherit;
+  cursor:pointer;transition:all .2s;margin-bottom:.75rem;
+}
+.btn-sync.has-pending{border-color:var(--primary);color:var(--primary-dark);background:#F1F8F1;font-weight:600}
+.btn-sync.syncing{opacity:.7;cursor:not-allowed}
+.sync-tag{
+  font-size:.72rem;background:var(--primary);color:#fff;
+  padding:.1rem .45rem;border-radius:10px;font-weight:700;
+}
+
 .empty-state{
   text-align:center;
   padding:3rem 1rem;
@@ -727,6 +743,10 @@ header .header-text p{font-size:.8rem;opacity:.85;font-weight:500;line-height:1.
       <div class="value" id="hist-count">0</div>
     </div>
   </div>
+  <button class="btn-sync" id="sync-btn" onclick="syncToSheets()">
+    ☁️ Sync Google Sheets &nbsp;<span id="sync-pending"></span>
+  </button>
+
   <p class="section-title">Transacciones</p>
   <div class="tx-list" id="tx-list"></div>
 </section>
@@ -967,6 +987,7 @@ const BACKLOG_PRESETS = [
 
 const STORAGE_KEY = 'abundapp_expenses';
 const BACKLOG_KEY = 'abundapp_backlog';
+const SHEETS_URL = 'https://script.google.com/macros/s/AKfycbzEPxm7QcEZBR41MMC8h9_aF2ard0vLN4R33Vs_YN-CZ3yBpozqv283ydpUsYR19vzo/exec';
 const MONTH_NAMES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 
 /* ══════════════════════════════════════
@@ -997,6 +1018,7 @@ function init() {
   renderHistory();
   renderResumen();
   renderBacklog();
+  updateSyncBadge();
 }
 
 function loadExpenses() {
@@ -1007,6 +1029,68 @@ function loadExpenses() {
 
 function saveExpenses() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(expenses));
+}
+
+/* ══════════════════════════════════════
+   SYNC CON GOOGLE SHEETS
+   ══════════════════════════════════════ */
+function updateSyncBadge() {
+  const pending = expenses.filter(e => !e.synced).length;
+  const el = document.getElementById('sync-pending');
+  const btn = document.getElementById('sync-btn');
+  if (!el || !btn) return;
+  if (pending > 0) {
+    el.innerHTML = '<span class="sync-tag">' + pending + ' pendiente' + (pending > 1 ? 's' : '') + '</span>';
+    btn.classList.add('has-pending');
+  } else {
+    el.textContent = '✓ Al día';
+    btn.classList.remove('has-pending');
+  }
+}
+
+async function syncToSheets(silent) {
+  const pending = expenses.filter(e => !e.synced);
+  if (pending.length === 0) {
+    if (!silent) showToast('✓ Todo sincronizado');
+    updateSyncBadge();
+    return;
+  }
+  const btn = document.getElementById('sync-btn');
+  if (btn) { btn.classList.add('syncing'); btn.disabled = true; }
+  try {
+    const payload = pending.map(function(e) {
+      return {
+        id: e.id,
+        fecha: e.fecha,
+        usuario: e.usuario,
+        categoria: e.categoria,
+        subcategoria: e.subcategoria,
+        monto: e.monto,
+        nota: e.nota || '',
+        tipo: 'Gasto'
+      };
+    });
+    const res = await fetch(SHEETS_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (data.status === 'ok') {
+      pending.forEach(function(p) {
+        const exp = expenses.find(function(e) { return e.id === p.id; });
+        if (exp) exp.synced = true;
+      });
+      saveExpenses();
+      if (!silent) showToast('☁️ ' + data.escritos + ' gasto' + (data.escritos !== 1 ? 's' : '') + ' sincronizado' + (data.escritos !== 1 ? 's' : ''));
+    } else {
+      if (!silent) showToast('❌ Error al sincronizar');
+    }
+  } catch(err) {
+    if (!silent) showToast('❌ Sin conexión');
+  }
+  if (btn) { btn.classList.remove('syncing'); btn.disabled = false; }
+  updateSyncBadge();
 }
 
 function setDefaultDate() {
@@ -1089,11 +1173,13 @@ function handleSubmit(e) {
     categoria: document.getElementById('categoria').value,
     subcategoria: document.getElementById('subcategoria').value,
     monto: parseFloat(document.getElementById('monto').value),
-    nota: document.getElementById('nota').value.trim()
+    nota: document.getElementById('nota').value.trim(),
+    synced: false
   };
   expenses.push(expense);
   saveExpenses();
-  showToast('Gasto registrado');
+  showToast('Gasto registrado ✓');
+  syncToSheets(true);
   document.getElementById('expense-form').reset();
   setDefaultDate();
   document.getElementById('subcategoria').innerHTML = '<option value="">Primero selecciona categoría</option>';
@@ -1231,6 +1317,7 @@ function renderHistory() {
 
   document.getElementById('hist-total').textContent = formatMoney(total);
   document.getElementById('hist-count').textContent = data.length;
+  updateSyncBadge();
 
   if (data.length === 0) {
     list.innerHTML = '<div class="empty-state"><div class="empty-icon">&#128203;</div><p>No hay gastos que coincidan</p></div>';
