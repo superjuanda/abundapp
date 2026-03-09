@@ -982,7 +982,8 @@ const BACKLOG_PRESETS = [
   {id:'p15',emoji:'🎛️',section:'🚀 Tech que Impresiona',texto:'Dashboard personalizable',bullets:['Arrastrar y soltar widgets','Elegir qué métricas ver primero','Vista rápida vs detallada'],votes:0,completado:false,fecha:'2025-01-01'},
   {id:'p16',emoji:'🎨',section:'🎨 Detalles Premium',texto:'Themes y personalización',bullets:['Modo oscuro automático','Colores por categoría','Animaciones satisfactorias'],votes:0,completado:false,fecha:'2025-01-01'},
   {id:'p17',emoji:'🔍',section:'🎨 Detalles Premium',texto:'Búsqueda y filtros potentes',bullets:['"Gastos > $50 en Restaurantes en marzo"','Búsqueda por notas','Guardar búsquedas frecuentes'],votes:0,completado:false,fecha:'2025-01-01'},
-  {id:'p18',emoji:'📎',section:'🎨 Detalles Premium',texto:'Adjuntos',bullets:['Fotos de recibos en cada gasto','Notas de voz','Links (ej: tracking de Amazon)'],votes:0,completado:false,fecha:'2025-01-01'}
+  {id:'p18',emoji:'📎',section:'🎨 Detalles Premium',texto:'Adjuntos',bullets:['Fotos de recibos en cada gasto','Notas de voz','Links (ej: tracking de Amazon)'],votes:0,completado:false,fecha:'2025-01-01'},
+  {id:'p19',emoji:'💰',section:'⭐ Próximas Features',texto:'Presupuestos por categoría',bullets:['Definir límite mensual por categoría: Alimentación $500, Transporte $200, Entretenimiento $100, etc.','Barra de progreso visual en pestaña Resumen: "Alimentación — $320 de $500 (64%)"','Semáforo: verde <70%, amarillo 70–90%, rojo >90% del presupuesto consumido','Alerta inline al registrar un gasto que cruce el límite del mes','Presupuestos guardados en Google Sheets (tab Presupuesto) → app los lee vía pullFromSheets()','Soporte por usuario: presupuesto familiar compartido Y presupuesto individual por persona','Vista comparativa: mes actual vs mes anterior vs promedio últimos 3 meses'],votes:5,completado:false,fecha:'2026-03-09'}
 ];
 
 const STORAGE_KEY = 'abundapp_expenses';
@@ -1019,6 +1020,10 @@ function init() {
   renderResumen();
   renderBacklog();
   updateSyncBadge();
+  // Pull desde Sheets al abrir (sync bidireccional)
+  pullFromSheets().then(function(added) {
+    if (added > 0) showToast('⬇️ ' + added + ' gasto' + (added !== 1 ? 's' : '') + ' importado' + (added !== 1 ? 's' : '') + ' de Sheets');
+  });
 }
 
 function loadExpenses() {
@@ -1047,6 +1052,32 @@ function updateSyncBadge() {
     btn.classList.remove('has-pending');
   }
 }
+
+async function pullFromSheets() {
+  try {
+    const res = await fetch(SHEETS_URL);
+    const data = await res.json();
+    if (data.status !== 'ok' || !Array.isArray(data.gastos)) return 0;
+    const localIds = new Set(expenses.map(function(e) { return e.id; }));
+    let added = 0;
+    data.gastos.forEach(function(g) {
+      if (g.id && !localIds.has(g.id)) {
+        expenses.push(Object.assign({}, g, { synced: true }));
+        added++;
+      }
+    });
+    if (added > 0) {
+      saveExpenses();
+      renderHistory();
+      renderResumen();
+      updateSyncBadge();
+    }
+    return added;
+  } catch(err) { return 0; }
+}
+
+// Auto-sync al recuperar conexión
+window.addEventListener('online', function() { syncToSheets(true); });
 
 async function syncToSheets(silent) {
   const pending = expenses.filter(e => !e.synced);
@@ -1156,7 +1187,7 @@ function updateEditSubcategories(preselect) {
 function switchTab(tab) {
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
   document.querySelectorAll('.section').forEach(s => s.classList.toggle('active', s.id === 'tab-' + tab));
-  if (tab === 'historial') renderHistory();
+  if (tab === 'historial') { renderHistory(); pullFromSheets(); }
   if (tab === 'resumen') renderResumen();
   if (tab === 'proximo') renderBacklog();
 }
