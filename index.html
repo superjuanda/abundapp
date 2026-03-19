@@ -85,9 +85,9 @@ header .header-text p{font-size:.8rem;opacity:.85;font-weight:500;line-height:1.
   border:none;background:none;
   cursor:pointer;
   color:var(--text-light);
-  font-size:.6rem;
+  font-size:.55rem;
   font-weight:700;
-  letter-spacing:.3px;
+  letter-spacing:.2px;
   text-transform:uppercase;
   transition:color .2s;
   -webkit-tap-highlight-color:transparent;
@@ -609,6 +609,71 @@ header .header-text p{font-size:.8rem;opacity:.85;font-weight:500;line-height:1.
 }
 .bi-del:active{transform:scale(.9)}
 
+/* ── Presupuestos ── */
+.budget-kpis{
+  display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-bottom:1rem;
+}
+.budget-kpi{
+  background:var(--card);border-radius:var(--radius);
+  padding:1rem;box-shadow:var(--shadow);text-align:center;
+}
+.budget-kpi.full{grid-column:1/-1}
+.budget-kpi .bk-label{font-size:.67rem;color:var(--text-light);text-transform:uppercase;letter-spacing:.55px;font-weight:700}
+.budget-kpi .bk-value{font-size:1.5rem;font-weight:800;margin-top:4px;letter-spacing:-.5px}
+.budget-kpi .bk-sub{font-size:.72rem;color:var(--text-light);margin-top:2px;font-weight:500}
+
+.budget-cat-card{
+  background:var(--card);border-radius:var(--radius);
+  padding:.9rem 1rem;box-shadow:var(--shadow);margin-bottom:.6rem;
+}
+.budget-cat-header{
+  display:flex;align-items:center;justify-content:space-between;
+  cursor:pointer;-webkit-tap-highlight-color:transparent;
+}
+.budget-cat-name{font-size:.88rem;font-weight:700;display:flex;align-items:center;gap:.4rem}
+.budget-cat-right{text-align:right}
+.budget-cat-amounts{font-size:.78rem;font-weight:600;color:var(--text)}
+.budget-cat-pct{font-size:.7rem;font-weight:800;margin-top:1px}
+.budget-bar-wrap{
+  height:8px;background:var(--border);border-radius:4px;
+  margin-top:.5rem;overflow:hidden;
+}
+.budget-bar{
+  height:100%;border-radius:4px;transition:width .5s ease;min-width:2px;
+}
+.budget-subcats{display:none;margin-top:.6rem;padding-left:.25rem}
+.budget-subcats.open{display:block}
+.budget-sub-row{
+  display:flex;align-items:center;gap:.5rem;
+  padding:.45rem 0;border-bottom:1px solid var(--border);
+}
+.budget-sub-row:last-child{border-bottom:none}
+.budget-sub-name{font-size:.78rem;font-weight:600;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.budget-sub-bar-wrap{flex:0 0 55px;height:5px;background:var(--border);border-radius:3px;overflow:hidden}
+.budget-sub-bar{height:100%;border-radius:3px;transition:width .4s ease;min-width:1px}
+.budget-sub-amounts{font-size:.72rem;font-weight:700;white-space:nowrap;text-align:right;min-width:85px}
+.budget-sub-status{font-size:.85rem;flex-shrink:0;width:20px;text-align:center}
+
+/* Semaphore colors */
+.sem-green{color:#2E7D32}
+.sem-yellow{color:#F9A825}
+.sem-orange{color:#EF6C00}
+.sem-red{color:#C62828}
+.bar-green{background:linear-gradient(90deg,#43A047,#66BB6A)}
+.bar-yellow{background:linear-gradient(90deg,#FDD835,#FFEE58)}
+.bar-orange{background:linear-gradient(90deg,#FB8C00,#FFA726)}
+.bar-red{background:linear-gradient(90deg,#E53935,#EF5350)}
+
+.budget-loading{
+  text-align:center;padding:3rem 1rem;color:var(--text-light);
+}
+.budget-loading .spinner{
+  width:32px;height:32px;border:3px solid var(--border);
+  border-top-color:var(--primary);border-radius:50%;
+  animation:spin .7s linear infinite;margin:0 auto 1rem;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+
 /* ── Splash / Install ── */
 @media(display-mode:standalone){
   body{padding-top:env(safe-area-inset-top,0)}
@@ -638,6 +703,10 @@ header .header-text p{font-size:.8rem;opacity:.85;font-weight:500;line-height:1.
   <button class="tab" data-tab="resumen" onclick="switchTab('resumen')">
     <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>
     <span>Resumen</span>
+  </button>
+  <button class="tab" data-tab="presupuestos" onclick="switchTab('presupuestos')">
+    <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+    <span>Presup.</span>
   </button>
   <button class="tab" data-tab="proximo" onclick="switchTab('proximo')">
     <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg>
@@ -833,6 +902,42 @@ header .header-text p{font-size:.8rem;opacity:.85;font-weight:500;line-height:1.
   <div class="cat-list" id="cat-list"></div>
 </section>
 
+<!-- ═══ TAB: PRESUPUESTOS ═══ -->
+<section id="tab-presupuestos" class="section">
+  <div class="budget-kpis" id="budget-kpis">
+    <div class="budget-kpi">
+      <div class="bk-label">Presupuesto</div>
+      <div class="bk-value" id="bk-total-budget">$0</div>
+    </div>
+    <div class="budget-kpi">
+      <div class="bk-label">Gastado</div>
+      <div class="bk-value" id="bk-total-spent">$0</div>
+    </div>
+    <div class="budget-kpi">
+      <div class="bk-label">Disponible</div>
+      <div class="bk-value" id="bk-available">$0</div>
+      <div class="bk-sub" id="bk-days-left"></div>
+    </div>
+    <div class="budget-kpi">
+      <div class="bk-label">Consumido</div>
+      <div class="bk-value" id="bk-percent">0%</div>
+      <div class="bk-sub" id="bk-status-emoji"></div>
+    </div>
+  </div>
+
+  <div class="budget-bar-wrap" style="height:10px;margin-bottom:1rem">
+    <div class="budget-bar" id="bk-main-bar" style="width:0%"></div>
+  </div>
+
+  <p class="section-title">Por categoría</p>
+  <div id="budget-cat-list">
+    <div class="budget-loading" id="budget-loading">
+      <div class="spinner"></div>
+      <p>Cargando presupuestos...</p>
+    </div>
+  </div>
+</section>
+
 <!-- ═══ TAB: PRÓXIMO ═══ -->
 <section id="tab-proximo" class="section">
   <div class="backlog-input-card">
@@ -988,7 +1093,28 @@ const BACKLOG_PRESETS = [
 
 const STORAGE_KEY = 'abundapp_expenses';
 const BACKLOG_KEY = 'abundapp_backlog';
-const SHEETS_URL = 'https://script.google.com/macros/s/AKfycbzEPxm7QcEZBR41MMC8h9_aF2ard0vLN4R33Vs_YN-CZ3yBpozqv283ydpUsYR19vzo/exec';
+const SHEETS_URL = 'https://script.google.com/macros/s/AKfycbwXjq3YLgngJTLV9VSpfh9U07fkK_GOlh8t1ewtPraN6CLF3ZyCRd-_vpW24s84sG-DRA/exec';
+const API_KEY = 'abundapp-familia-2026';
+
+/* ── API wrapper for new v3 endpoints ── */
+async function apiCall(action, params) {
+  const url = new URL(SHEETS_URL);
+  url.searchParams.set('key', API_KEY);
+  url.searchParams.set('action', action);
+  if (params) Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
+  const res = await fetch(url, { redirect: 'follow' });
+  return res.json();
+}
+
+async function apiPost(action, data) {
+  const res = await fetch(SHEETS_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    redirect: 'follow',
+    body: JSON.stringify({ key: API_KEY, action, data })
+  });
+  return res.json();
+}
 const MONTH_NAMES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 
 /* ══════════════════════════════════════
@@ -1189,6 +1315,7 @@ function switchTab(tab) {
   document.querySelectorAll('.section').forEach(s => s.classList.toggle('active', s.id === 'tab-' + tab));
   if (tab === 'historial') { renderHistory(); pullFromSheets(); }
   if (tab === 'resumen') renderResumen();
+  if (tab === 'presupuestos') { if (!budgetLoaded) loadBudgetData(); else renderBudget(); }
   if (tab === 'proximo') renderBacklog();
 }
 
@@ -1681,6 +1808,126 @@ document.getElementById('edit-modal').addEventListener('click', function(e) {
 document.getElementById('confirm-dialog').addEventListener('click', function(e) {
   if (e.target === this) closeConfirm();
 });
+
+/* ══════════════════════════════════════
+   PRESUPUESTOS
+   ══════════════════════════════════════ */
+let budgetData = null;
+let budgetLoaded = false;
+
+const SEMAPHORE = {
+  getColor(pct) {
+    if (pct < 0.7) return 'green';
+    if (pct < 0.9) return 'yellow';
+    if (pct <= 1)  return 'orange';
+    return 'red';
+  },
+  getEmoji(pct) {
+    if (pct < 0.7) return '\u{1F7E2}';
+    if (pct < 0.9) return '\u{1F7E1}';
+    if (pct <= 1)  return '\u{1F7E0}';
+    return '\u{1F534}';
+  }
+};
+
+async function loadBudgetData() {
+  const loadingEl = document.getElementById('budget-loading');
+  if (loadingEl) loadingEl.style.display = 'block';
+  try {
+    const data = await apiCall('getBudgetStatus');
+    if (data.success) {
+      budgetData = data;
+      budgetLoaded = true;
+      renderBudget();
+    } else {
+      const catList = document.getElementById('budget-cat-list');
+      catList.innerHTML = '<div class="empty-state"><div class="empty-icon">\u{1F4B0}</div><p>' + esc(data.error || 'Error cargando presupuestos') + '</p></div>';
+    }
+  } catch (err) {
+    const catList = document.getElementById('budget-cat-list');
+    catList.innerHTML = '<div class="empty-state"><div class="empty-icon">\u26A0\uFE0F</div><p>Sin conexión. Intenta de nuevo.</p></div>';
+  }
+}
+
+function renderBudget() {
+  if (!budgetData) return;
+  const t = budgetData.totals;
+  const pct = t.percent || 0;
+  const color = SEMAPHORE.getColor(pct);
+  const available = t.budget - t.spent;
+
+  document.getElementById('bk-total-budget').textContent = formatMoney(t.budget);
+  document.getElementById('bk-total-spent').textContent = formatMoney(t.spent);
+  document.getElementById('bk-available').textContent = formatMoney(available);
+  document.getElementById('bk-available').className = 'bk-value' + (available < 0 ? ' sem-red' : '');
+  document.getElementById('bk-days-left').textContent = budgetData.daysLeft + ' días restantes';
+  document.getElementById('bk-percent').textContent = Math.round(pct * 100) + '%';
+  document.getElementById('bk-percent').className = 'bk-value sem-' + color;
+  document.getElementById('bk-status-emoji').textContent = SEMAPHORE.getEmoji(pct);
+
+  const mainBar = document.getElementById('bk-main-bar');
+  mainBar.style.width = Math.min(pct * 100, 100) + '%';
+  mainBar.className = 'budget-bar bar-' + color;
+
+  // Group rows by category
+  const catMap = {};
+  budgetData.rows.forEach(function(r) {
+    if (!r.category) return;
+    if (!catMap[r.category]) {
+      catMap[r.category] = { budget: 0, spent: 0, subcats: [], type: r.type };
+    }
+    catMap[r.category].budget += r.budget;
+    catMap[r.category].spent += r.spent;
+    catMap[r.category].subcats.push(r);
+  });
+
+  // Sort by spent descending
+  const sorted = Object.entries(catMap).sort(function(a, b) { return b[1].spent - a[1].spent; });
+
+  const catList = document.getElementById('budget-cat-list');
+  if (sorted.length === 0) {
+    catList.innerHTML = '<div class="empty-state"><div class="empty-icon">\u{1F4CA}</div><p>Sin presupuestos configurados</p></div>';
+    return;
+  }
+
+  catList.innerHTML = sorted.map(function(entry, idx) {
+    var cat = entry[0], d = entry[1];
+    var catPct = d.budget > 0 ? d.spent / d.budget : (d.spent > 0 ? 1.1 : 0);
+    var color = SEMAPHORE.getColor(catPct);
+    var icon = CAT_ICONS[cat] || '\u{1F4B0}';
+    var variance = d.budget - d.spent;
+
+    var subcatHtml = d.subcats.map(function(s) {
+      var sPct = s.budget > 0 ? s.spent / s.budget : (s.spent > 0 ? 1.1 : 0);
+      var sColor = SEMAPHORE.getColor(sPct);
+      var sIcon = SUBCAT_ICONS[s.subcategory] || '';
+      if (s.budget === 0 && s.spent === 0) return '';
+      return '<div class="budget-sub-row">' +
+        '<span class="budget-sub-status">' + SEMAPHORE.getEmoji(sPct) + '</span>' +
+        '<span class="budget-sub-name">' + (sIcon ? sIcon + ' ' : '') + esc(s.subcategory) + '</span>' +
+        '<div class="budget-sub-bar-wrap"><div class="budget-sub-bar bar-' + sColor + '" style="width:' + Math.min(sPct * 100, 100) + '%"></div></div>' +
+        '<span class="budget-sub-amounts">' + formatMoney(s.spent) + ' / ' + formatMoney(s.budget) + '</span>' +
+      '</div>';
+    }).filter(Boolean).join('');
+
+    return '<div class="budget-cat-card">' +
+      '<div class="budget-cat-header" onclick="toggleBudgetCat(' + idx + ')">' +
+        '<span class="budget-cat-name">' + icon + ' ' + esc(cat) + '</span>' +
+        '<div class="budget-cat-right">' +
+          '<div class="budget-cat-amounts">' + formatMoney(d.spent) + ' / ' + formatMoney(d.budget) + '</div>' +
+          '<div class="budget-cat-pct sem-' + color + '">' + SEMAPHORE.getEmoji(catPct) + ' ' + Math.round(catPct * 100) + '%</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="budget-bar-wrap"><div class="budget-bar bar-' + color + '" style="width:' + Math.min(catPct * 100, 100) + '%"></div></div>' +
+      '<div class="budget-subcats" id="budget-subcats-' + idx + '">' + subcatHtml + '</div>' +
+    '</div>';
+  }).join('');
+}
+
+function toggleBudgetCat(idx) {
+  var el = document.getElementById('budget-subcats-' + idx);
+  if (el) el.classList.toggle('open');
+}
 
 /* ══════════════════════════════════════
    BACKLOG / PRÓXIMO
