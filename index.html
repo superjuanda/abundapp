@@ -256,8 +256,8 @@ header .header-text p{font-size:.8rem;opacity:.85;font-weight:500;line-height:1.
 .tx-icon{
   width:44px;height:44px;
   border-radius:12px;
-  background:linear-gradient(135deg,var(--primary-dark),var(--accent));
-  color:#fff;
+  background:#fff;
+  border:1px solid var(--border);
   display:flex;align-items:center;justify-content:center;
   font-size:1.15rem;
   flex-shrink:0;
@@ -381,6 +381,73 @@ header .header-text p{font-size:.8rem;opacity:.85;font-weight:500;line-height:1.
   white-space:nowrap;
 }
 .toast.show{opacity:1}
+
+/* ── Success celebration overlay ── */
+.celebrate-overlay{
+  position:fixed;inset:0;z-index:500;
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(0,0,0,.4);
+  opacity:0;pointer-events:none;
+  transition:opacity .3s;
+  backdrop-filter:blur(4px);
+  -webkit-backdrop-filter:blur(4px);
+}
+.celebrate-overlay.show{opacity:1;pointer-events:auto}
+.celebrate-card{
+  background:#fff;
+  border-radius:24px;
+  padding:2rem 2.5rem;
+  text-align:center;
+  transform:scale(.5);
+  transition:transform .4s cubic-bezier(.34,1.56,.64,1);
+  box-shadow:0 20px 60px rgba(0,0,0,.25);
+  max-width:300px;
+  width:85%;
+}
+.celebrate-overlay.show .celebrate-card{transform:scale(1)}
+.celebrate-emoji{font-size:3.5rem;margin-bottom:.5rem;animation:celebBounce .6s ease}
+.celebrate-title{
+  font-size:1.3rem;font-weight:800;color:var(--primary-dark);
+  margin-bottom:.25rem;
+}
+.celebrate-amount{
+  font-size:1.8rem;font-weight:800;
+  background:linear-gradient(135deg,var(--primary-dark),var(--accent));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  background-clip:text;
+  margin-bottom:.3rem;
+}
+.celebrate-detail{font-size:.8rem;color:var(--text-light);margin-bottom:.1rem}
+.celebrate-streak{
+  display:inline-block;
+  margin-top:.6rem;
+  background:linear-gradient(135deg,var(--primary),var(--accent));
+  color:#fff;
+  padding:.3rem .9rem;
+  border-radius:100px;
+  font-size:.75rem;
+  font-weight:700;
+}
+@keyframes celebBounce{
+  0%{transform:scale(0) rotate(-15deg)}
+  50%{transform:scale(1.3) rotate(5deg)}
+  100%{transform:scale(1) rotate(0)}
+}
+/* Confetti particles */
+.confetti-container{position:fixed;inset:0;z-index:501;pointer-events:none;overflow:hidden}
+.confetti{
+  position:absolute;
+  width:10px;height:10px;
+  top:-10px;
+  border-radius:2px;
+  animation:confettiFall var(--duration, 2.5s) ease-in forwards;
+  animation-delay:var(--delay, 0s);
+}
+@keyframes confettiFall{
+  0%{transform:translateY(0) rotate(0deg) scale(1);opacity:1}
+  80%{opacity:1}
+  100%{transform:translateY(100vh) rotate(var(--spin, 720deg)) scale(.3);opacity:0}
+}
 
 /* ── Confirm dialog ── */
 .confirm-overlay{
@@ -1006,6 +1073,18 @@ header .header-text p{font-size:.8rem;opacity:.85;font-weight:500;line-height:1.
 <!-- ═══ TOAST ═══ -->
 <div class="toast" id="toast"></div>
 
+<!-- ═══ CELEBRATION OVERLAY ═══ -->
+<div class="celebrate-overlay" id="celebrate-overlay" onclick="closeCelebration()">
+  <div class="celebrate-card" onclick="event.stopPropagation()">
+    <div class="celebrate-emoji" id="celebrate-emoji"></div>
+    <div class="celebrate-title" id="celebrate-title"></div>
+    <div class="celebrate-amount" id="celebrate-amount"></div>
+    <div class="celebrate-detail" id="celebrate-detail"></div>
+    <div class="celebrate-streak" id="celebrate-streak"></div>
+  </div>
+</div>
+<div class="confetti-container" id="confetti-container"></div>
+
 <script>
 /* ══════════════════════════════════════
    DATA
@@ -1146,10 +1225,58 @@ function init() {
   renderResumen();
   renderBacklog();
   updateSyncBadge();
+  // Detectar usuario logueado via Cloudflare Access y preseleccionar
+  detectLoggedInUser();
+  // Flush borrados pendientes antes de hacer pull (evita zombies)
+  flushDeleteQueue();
   // Pull desde Sheets al abrir (sync bidireccional)
   pullFromSheets().then(function(added) {
     if (added > 0) showToast('⬇️ ' + added + ' gasto' + (added !== 1 ? 's' : '') + ' importado' + (added !== 1 ? 's' : '') + ' de Sheets');
   });
+  // Auto-cierre de mes: verificar si el mes activo en el Sheet ya pasó
+  autoCheckMonth();
+}
+
+async function detectLoggedInUser() {
+  try {
+    // Cloudflare Access expone la identidad del usuario logueado
+    const res = await fetch('/cdn-cgi/access/get-identity');
+    const identity = await res.json();
+    const email = (identity.email || '').toLowerCase();
+
+    let defaultUser = '';
+    if (email.includes('juandavid')) defaultUser = 'Juan David';
+    else if (email.includes('nicky') || email.includes('nicolle') || email.includes('nickytorres')) defaultUser = 'Nicolle';
+
+    if (defaultUser) {
+      // Preseleccionar en formulario de registro
+      const sel = document.getElementById('usuario');
+      if (sel) sel.value = defaultUser;
+      // Guardar para uso futuro (edición, etc.)
+      localStorage.setItem('abundapp_default_user', defaultUser);
+    }
+  } catch (e) {
+    // Fallback: usar último usuario guardado
+    const saved = localStorage.getItem('abundapp_default_user');
+    if (saved) {
+      const sel = document.getElementById('usuario');
+      if (sel) sel.value = saved;
+    }
+  }
+}
+
+async function autoCheckMonth() {
+  try {
+    const result = await apiCall('checkMonth');
+    if (result.success && result.action === 'auto_closed') {
+      showToast('📅 Se cerró automáticamente: ' + result.closedMonths.join(', '));
+      // Invalidar cache de presupuestos para que recargue con el mes nuevo
+      budgetLoaded = false;
+    }
+  } catch (e) {
+    // Silenciar error — no es crítico, se reintentará en la próxima apertura
+    console.log('autoCheckMonth error:', e);
+  }
 }
 
 function loadExpenses() {
@@ -1184,26 +1311,32 @@ async function pullFromSheets() {
     const res = await fetch(SHEETS_URL);
     const data = await res.json();
     if (data.status !== 'ok' || !Array.isArray(data.gastos)) return 0;
-    const localIds = new Set(expenses.map(function(e) { return e.id; }));
-    let added = 0;
-    data.gastos.forEach(function(g) {
-      if (g.id && !localIds.has(g.id)) {
-        expenses.push(Object.assign({}, g, { synced: true }));
-        added++;
-      }
-    });
-    if (added > 0) {
-      saveExpenses();
-      renderHistory();
-      renderResumen();
-      updateSyncBadge();
-    }
-    return added;
+
+    // Mantener gastos locales que NO se han sincronizado todavía
+    const unsyncedLocal = expenses.filter(e => !e.synced);
+
+    // Filtrar gastos que están en la cola de borrado (evita zombies)
+    const deleteQueue = getDeleteQueue();
+    const sheetExpenses = data.gastos
+      .filter(g => !deleteQueue.includes(g.id))
+      .map(g => Object.assign({}, g, { synced: true }));
+    const oldCount = expenses.length;
+    expenses = sheetExpenses.concat(unsyncedLocal);
+    saveExpenses();
+
+    const diff = expenses.length - oldCount;
+    renderHistory();
+    renderResumen();
+    updateSyncBadge();
+    return Math.abs(diff);
   } catch(err) { return 0; }
 }
 
-// Auto-sync al recuperar conexión
-window.addEventListener('online', function() { syncToSheets(true); });
+// Auto-sync al recuperar conexión (gastos pendientes + borrados pendientes)
+window.addEventListener('online', function() {
+  syncToSheets(true);
+  flushDeleteQueue();
+});
 
 async function syncToSheets(silent) {
   const pending = expenses.filter(e => !e.synced);
@@ -1336,10 +1469,13 @@ function handleSubmit(e) {
   };
   expenses.push(expense);
   saveExpenses();
-  showToast('Gasto registrado ✓');
+  showCelebration(expense);
   syncToSheets(true);
   document.getElementById('expense-form').reset();
   setDefaultDate();
+  // Restaurar usuario default después del reset
+  const savedUser = localStorage.getItem('abundapp_default_user');
+  if (savedUser) document.getElementById('usuario').value = savedUser;
   document.getElementById('subcategoria').innerHTML = '<option value="">Primero selecciona categoría</option>';
   return false;
 }
@@ -1766,14 +1902,62 @@ function closeConfirm() {
   pendingDeleteId = null;
 }
 
-function executeDelete() {
+async function executeDelete() {
   if (!pendingDeleteId) return;
-  expenses = expenses.filter(e => e.id !== pendingDeleteId);
+  const idToDelete = pendingDeleteId;
+  expenses = expenses.filter(e => e.id !== idToDelete);
   saveExpenses();
   closeConfirm();
   renderHistory();
   renderResumen();
   showToast('Gasto eliminado');
+
+  // Borrar del Sheet si es un gasto sincronizado (tiene id 'sheet-X')
+  if (idToDelete.startsWith('sheet-')) {
+    try {
+      const result = await apiPost('deleteExpense', { id: idToDelete });
+      if (result.success) return; // Borrado exitoso
+    } catch (e) {
+      // Sin conexión — encolar para después
+    }
+    // Si falló o no hay internet, agregar a la cola de borrados
+    addToDeleteQueue(idToDelete);
+  }
+}
+
+/* ── Cola de borrados pendientes (offline) ── */
+function getDeleteQueue() {
+  try { return JSON.parse(localStorage.getItem('abundapp_delete_queue') || '[]'); }
+  catch { return []; }
+}
+
+function addToDeleteQueue(id) {
+  const queue = getDeleteQueue();
+  if (!queue.includes(id)) {
+    queue.push(id);
+    localStorage.setItem('abundapp_delete_queue', JSON.stringify(queue));
+  }
+}
+
+async function flushDeleteQueue() {
+  const queue = getDeleteQueue();
+  if (queue.length === 0) return;
+
+  const remaining = [];
+  for (const id of queue) {
+    try {
+      const result = await apiPost('deleteExpense', { id });
+      if (!result.success && !result.error.includes('no encontrado')) {
+        remaining.push(id); // Reintentar después
+      }
+    } catch (e) {
+      remaining.push(id); // Sin conexión todavía
+    }
+  }
+  localStorage.setItem('abundapp_delete_queue', JSON.stringify(remaining));
+  if (remaining.length < queue.length) {
+    console.log('Delete queue: ' + (queue.length - remaining.length) + ' borrados sincronizados');
+  }
 }
 
 /* ══════════════════════════════════════
@@ -1799,6 +1983,71 @@ function showToast(msg) {
   t.textContent = msg;
   t.classList.add('show');
   setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+/* ── Celebration animation on expense registered ── */
+const CELEBRATE_PHRASES = [
+  '!Registrado!', '!Excelente!', '!Anotado!', '!Crack!',
+  '!Eso es control!', '!Finanzas pro!', '!Bien hecho!'
+];
+const CELEBRATE_EMOJIS = ['🎉','🥳','💪','🔥','⭐','🏆','✨','💰','🚀','👏'];
+
+function showCelebration(expense) {
+  const overlay = document.getElementById('celebrate-overlay');
+  const emoji = CELEBRATE_EMOJIS[Math.floor(Math.random() * CELEBRATE_EMOJIS.length)];
+  const phrase = CELEBRATE_PHRASES[Math.floor(Math.random() * CELEBRATE_PHRASES.length)];
+  const catIcon = CAT_ICONS[expense.categoria] || '📝';
+  const subIcon = SUBCAT_ICONS[expense.subcategoria] || '';
+
+  document.getElementById('celebrate-emoji').textContent = emoji;
+  document.getElementById('celebrate-title').textContent = phrase;
+  document.getElementById('celebrate-amount').textContent = '$' + expense.monto.toFixed(2);
+  document.getElementById('celebrate-detail').textContent = (subIcon ? subIcon + ' ' : '') + expense.subcategoria;
+
+  // Streak: contar gastos registrados hoy
+  const today = new Date().toISOString().slice(0, 10);
+  const todayCount = expenses.filter(e => e.fecha === today).length;
+  const streakEl = document.getElementById('celebrate-streak');
+  if (todayCount > 1) {
+    streakEl.textContent = catIcon + ' ' + todayCount + ' registros hoy — !sigue asi!';
+    streakEl.style.display = 'inline-block';
+  } else {
+    streakEl.textContent = catIcon + ' Primer registro del dia';
+    streakEl.style.display = 'inline-block';
+  }
+
+  overlay.classList.add('show');
+  launchConfetti();
+
+  // Auto-cerrar después de 2.2 segundos
+  setTimeout(closeCelebration, 2200);
+}
+
+function closeCelebration() {
+  document.getElementById('celebrate-overlay').classList.remove('show');
+}
+
+function launchConfetti() {
+  const container = document.getElementById('confetti-container');
+  container.innerHTML = '';
+  const colors = ['#4CAF50','#8BC34A','#CDDC39','#FF9800','#E91E63','#2196F3','#9C27B0','#00BCD4','#FFD700'];
+
+  for (let i = 0; i < 50; i++) {
+    const piece = document.createElement('div');
+    piece.className = 'confetti';
+    piece.style.left = Math.random() * 100 + '%';
+    piece.style.background = colors[Math.floor(Math.random() * colors.length)];
+    piece.style.width = (6 + Math.random() * 8) + 'px';
+    piece.style.height = (6 + Math.random() * 8) + 'px';
+    piece.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
+    piece.style.setProperty('--duration', (2 + Math.random() * 1.5) + 's');
+    piece.style.setProperty('--delay', (Math.random() * 0.4) + 's');
+    piece.style.setProperty('--spin', (360 + Math.random() * 720) + 'deg');
+    container.appendChild(piece);
+  }
+
+  // Limpiar confetti después de la animación
+  setTimeout(() => { container.innerHTML = ''; }, 4000);
 }
 
 // Close modals on overlay click
@@ -1838,15 +2087,35 @@ async function loadBudgetData() {
     if (data.success) {
       budgetData = data;
       budgetLoaded = true;
+      // Guardar en cache para uso offline
+      localStorage.setItem('abundapp_budget_cache', JSON.stringify(data));
       renderBudget();
     } else {
+      // Intentar cargar desde cache
+      if (loadBudgetFromCache()) return;
       const catList = document.getElementById('budget-cat-list');
       catList.innerHTML = '<div class="empty-state"><div class="empty-icon">\u{1F4B0}</div><p>' + esc(data.error || 'Error cargando presupuestos') + '</p></div>';
     }
   } catch (err) {
+    // Sin conexión — cargar desde cache
+    if (loadBudgetFromCache()) return;
     const catList = document.getElementById('budget-cat-list');
-    catList.innerHTML = '<div class="empty-state"><div class="empty-icon">\u26A0\uFE0F</div><p>Sin conexión. Intenta de nuevo.</p></div>';
+    catList.innerHTML = '<div class="empty-state"><div class="empty-icon">\u26A0\uFE0F</div><p>Sin conexión y sin datos en caché.</p></div>';
   }
+}
+
+function loadBudgetFromCache() {
+  try {
+    const cached = JSON.parse(localStorage.getItem('abundapp_budget_cache'));
+    if (cached && cached.success) {
+      budgetData = cached;
+      budgetLoaded = true;
+      renderBudget();
+      showToast('📊 Presupuestos cargados desde caché');
+      return true;
+    }
+  } catch (e) {}
+  return false;
 }
 
 function renderBudget() {
