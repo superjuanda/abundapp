@@ -1911,6 +1911,7 @@ async function executeDelete() {
   renderHistory();
   renderResumen();
   showToast('Gasto eliminado');
+  budgetLoaded = false; // Invalidar cache para que presupuestos recargue
 
   // Borrar del Sheet si es un gasto sincronizado (tiene id 'sheet-X')
   if (idToDelete.startsWith('sheet-')) {
@@ -2024,7 +2025,17 @@ function showCelebration(expense) {
 }
 
 function closeCelebration() {
-  document.getElementById('celebrate-overlay').classList.remove('show');
+  const overlay = document.getElementById('celebrate-overlay');
+  overlay.classList.remove('show');
+  // Limpiar contenido del DOM para que screen readers no lean texto fantasma
+  setTimeout(() => {
+    document.getElementById('celebrate-emoji').textContent = '';
+    document.getElementById('celebrate-title').textContent = '';
+    document.getElementById('celebrate-amount').textContent = '';
+    document.getElementById('celebrate-detail').textContent = '';
+    document.getElementById('celebrate-streak').textContent = '';
+    document.getElementById('confetti-container').innerHTML = '';
+  }, 400); // Esperar a que termine la animación de salida
 }
 
 function launchConfetti() {
