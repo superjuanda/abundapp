@@ -1,4 +1,4 @@
-const CACHE_NAME = 'abundapp-v2';
+const CACHE_NAME = 'abundapp-v3';
 const ASSETS = [
   '/',
   '/index.html',
@@ -45,6 +45,13 @@ self.addEventListener('fetch', e => {
 
   // Requests a Apps Script (API): network-only, no cachear
   if (url.hostname.includes('script.google.com')) {
+    e.respondWith(fetch(e.request));
+    return;
+  }
+
+  // Cloudflare Access endpoints (identity, login, logout): network-only.
+  // Cachearlos rompe la auto-detección de usuario al refrescar la sesión.
+  if (url.pathname.startsWith('/cdn-cgi/')) {
     e.respondWith(fetch(e.request));
     return;
   }
