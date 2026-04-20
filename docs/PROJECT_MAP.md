@@ -151,7 +151,23 @@ Claudio will:
 
 ---
 
+## HEALTH MONITORING
+
+Dedicated Claude skill: **`/abundapp-health`**
+
+- Location: `~/.claude/skills/abundapp-health/`
+- What it does: runs 14 checks (live app, backend, auth, repo, drift), writes a dated report, detects when new Apps Script actions or PWA features are added and prompts to extend coverage
+- Reports: `~/.claude/skills/abundapp-health/reports/YYYY-MM-DD-HHMM.md`
+- Baseline: `~/.claude/skills/abundapp-health/state.json`
+- Check registry: `~/.claude/skills/abundapp-health/checks.json`
+- First baseline: `reports/2026-04-19-1854.md`
+
+**Run it:** say "/abundapp-health" or "check abundapp health". The skill evolves — every time you add a feature or endpoint, the next run flags it as "needs coverage" and proposes adding a check.
+
+---
+
 ## KNOWN ISSUES TO RESOLVE
 
-1. **GitHub repo is PUBLIC** — contains hardcoded API key and Apps Script URL. Should be made private.
-2. **Apps Script sync status unverified** — the local `apps-script/Code.gs` was copied from Drive on 2026-04-19. Need to confirm it matches the deployed version inside the Sheet.
+1. ~~**GitHub repo is PUBLIC**~~ — resolved 2026-04-19, now private ✓
+2. **3 local commits unpushed** (incl. the Cloudflare Access SW fix) — blocked on GitHub token write permissions. Push via GitHub Desktop or regenerate token with Contents: Read and Write.
+3. **Apps Script sync** — behaviorally verified (all 12 endpoints respond correctly per Code.gs). Byte-match not confirmed; requires opening the Apps Script editor. Low priority.
