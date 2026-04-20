@@ -1,4 +1,4 @@
-const CACHE_NAME = 'abundapp-v3';
+const CACHE_NAME = 'abundapp-v4';
 const ASSETS = [
   '/',
   '/index.html',
@@ -14,6 +14,11 @@ const ASSETS = [
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE_NAME).then(c => c.addAll(ASSETS)));
   self.skipWaiting();
+});
+
+// Permite que la app fuerce la activación del nuevo SW (botón "Actualizar")
+self.addEventListener('message', e => {
+  if (e.data && e.data.type === 'SKIP_WAITING') self.skipWaiting();
 });
 
 self.addEventListener('activate', e => {

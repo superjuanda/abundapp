@@ -882,6 +882,9 @@ header .header-text p{font-size:.8rem;opacity:.85;font-weight:500;line-height:1.
   <button class="btn-sync" id="sync-btn" onclick="syncToSheets()">
     ☁️ Sync Google Sheets &nbsp;<span id="sync-pending"></span>
   </button>
+  <button class="btn-sync" onclick="forceRefreshApp()" title="Limpia el caché y recarga la última versión de la app">
+    🔄 Actualizar app a la última versión
+  </button>
 
   <p class="section-title">Transacciones</p>
   <div class="tx-list" id="tx-list"></div>
@@ -2320,10 +2323,61 @@ function renderBacklog() {
 }
 
 /* ══════════════════════════════════════
-   SERVICE WORKER
+   SERVICE WORKER — registro + auto-update
    ══════════════════════════════════════ */
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('sw.js').catch(() => {});
+  navigator.serviceWorker.register('sw.js').then(reg => {
+    // Forzar check de nueva versión cada vez que abre la app
+    reg.update().catch(() => {});
+    // Cuando detecta nueva versión instalada y ya hay un SW activo → avisar
+    reg.addEventListener('updatefound', () => {
+      const nw = reg.installing;
+      if (!nw) return;
+      nw.addEventListener('statechange', () => {
+        if (nw.state === 'installed' && navigator.serviceWorker.controller) {
+          showUpdateAvailableToast();
+        }
+      });
+    });
+  }).catch(() => {});
+  // Recargar cuando el nuevo SW toma control (después de SKIP_WAITING)
+  let reloading = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (reloading) return;
+    reloading = true;
+    window.location.reload();
+  });
+}
+
+function showUpdateAvailableToast() {
+  const t = document.getElementById('toast');
+  if (!t) return;
+  t.innerHTML = '🎉 Nueva versión disponible &nbsp;<button onclick="applyUpdate()" style="background:var(--primary);color:#fff;border:none;padding:.25rem .6rem;border-radius:6px;font-weight:600;cursor:pointer">Actualizar</button>';
+  t.classList.add('show');
+  // No auto-ocultar — el usuario decide
+}
+
+async function applyUpdate() {
+  const reg = await navigator.serviceWorker.getRegistration();
+  if (reg && reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+  else window.location.reload();
+}
+
+async function forceRefreshApp() {
+  if (!confirm('¿Actualizar app a la última versión?\n\nSe limpiará el caché y se recargará. Tus datos locales NO se pierden.')) return;
+  try {
+    if ('caches' in window) {
+      const keys = await caches.keys();
+      await Promise.all(keys.map(k => caches.delete(k)));
+    }
+    if ('serviceWorker' in navigator) {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map(r => r.unregister()));
+    }
+    window.location.reload();
+  } catch (e) {
+    alert('Error al actualizar: ' + e.message);
+  }
 }
 
 // Start
