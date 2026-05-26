@@ -1228,7 +1228,12 @@ function init() {
   renderResumen();
   renderBacklog();
   updateSyncBadge();
-  // Detectar usuario logueado via Cloudflare Access y preseleccionar
+  // Sync: preseleccionar usuario desde localStorage (instantáneo, sin red)
+  // Garantiza que el campo nunca arranque en blanco en aperturas repetidas.
+  const _savedUser = localStorage.getItem('abundapp_default_user');
+  if (_savedUser) document.getElementById('usuario').value = _savedUser;
+  // Async: verificar/actualizar via Cloudflare Access identity
+  // (actualiza localStorage si cambia el usuario o es la primera vez)
   detectLoggedInUser();
   // Flush borrados pendientes antes de hacer pull (evita zombies)
   flushDeleteQueue();
