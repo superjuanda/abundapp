@@ -792,7 +792,7 @@ header .header-text p{font-size:.8rem;opacity:.85;font-weight:500;line-height:1.
         </div>
         <div class="form-group">
           <label for="usuario">Usuario</label>
-          <select id="usuario" required>
+          <select id="usuario" required onchange="if(this.value) localStorage.setItem('abundapp_default_user', this.value)">
             <option value="">Seleccionar</option>
             <option value="Juan David">👨 Juan David</option>
             <option value="Nicolle">👩 Nicolle</option>
@@ -1479,6 +1479,9 @@ function handleSubmit(e) {
   saveExpenses();
   showCelebration(expense);
   syncToSheets(true);
+  // Guardar usuario seleccionado ANTES del reset para restaurarlo después
+  const userBeforeReset = document.getElementById('usuario').value;
+  if (userBeforeReset) localStorage.setItem('abundapp_default_user', userBeforeReset);
   document.getElementById('expense-form').reset();
   setDefaultDate();
   // Restaurar usuario default después del reset
