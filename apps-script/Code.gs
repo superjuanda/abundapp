@@ -316,6 +316,21 @@ function closeMonth() {
     histSheet.getRange(lastHistRow, 1, rowsToWrite.length, 9).setValues(rowsToWrite);
   }
 
+  // ============================================================
+  // ADITIVO: Archivar ingresos del mes que se cierra.
+  // archiveIncomes() tiene su propia idempotencia (chequea filas
+  // de ingreso ya archivadas para mesActivo). Si falla, loguea
+  // el error pero NO rompe el cierre del mes — los gastos ya
+  // fueron archivados arriba y la app móvil sigue funcionando.
+  // ============================================================
+  var incomeArchiveResult = { archived: 0, error: null };
+  try {
+    incomeArchiveResult = archiveIncomes(ss, mesActivo);
+  } catch (e) {
+    Logger.log('archiveIncomes error: ' + e.message);
+    incomeArchiveResult.error = e.message;
+  }
+
   // Calcular siguiente mes
   var nextMonth = calculateNextMonth(mesActivo);
 
@@ -330,13 +345,27 @@ function closeMonth() {
   // Limpiar columna J (Notas Mes)
   presupSheet.getRange(5, 10, 80, 1).clearContent();
 
-  Logger.log('Mes cerrado: ' + mesActivo + ' → nuevo mes: ' + nextMonth);
+  // ============================================================
+  // ADITIVO: Resetear columna Real (E5:E15) de Ingresos Mes Activo.
+  // Los ingresos reales se llenan a mano cada mes — al cerrar el
+  // mes, limpiamos esa columna para empezar fresco el siguiente.
+  // Plantilla Ingresos NO se toca (es la base recurrente).
+  // ============================================================
+  try {
+    resetIncomeReals(ss);
+  } catch (e) {
+    Logger.log('resetIncomeReals error: ' + e.message);
+  }
+
+  Logger.log('Mes cerrado: ' + mesActivo + ' → nuevo mes: ' + nextMonth + '. Ingresos archivados: ' + incomeArchiveResult.archived);
 
   return {
     success: true,
     closedMonth: mesActivo,
     newMonth: nextMonth,
     archivedRows: rowsToWrite.length,
+    archivedIncomes: incomeArchiveResult.archived,
+    incomeArchiveError: incomeArchiveResult.error,
     message: 'Mes ' + mesActivo + ' cerrado. Nuevo mes activo: ' + nextMonth
   };
 }
@@ -428,12 +457,128 @@ function getDashboard(month) {
     }
   }
 
+  // ============================================================
+  // ADITIVO: Ingresos, Cash Flow, Pacing, Top Gastos, Tendencia
+  // Cada bloque está envuelto en try/catch para que si uno falla,
+  // los campos originales (budget/categories/alerts/recentTx) sigan
+  // sirviéndose correctamente y la PWA actual no se rompa.
+  // ============================================================
+
+  var incomes = { projected: 0, real: 0, variance: 0, percent: 0, missing: 0 };
+  try {
+    var incSheet = ss.getSheetByName('Ingresos Mes Activo');
+    if (incSheet) {
+      var incRow = incSheet.getRange('D16:G16').getValues()[0];
+      incomes.projected = parseFloat(incRow[0]) || 0;
+      incomes.real      = parseFloat(incRow[1]) || 0;
+      incomes.variance  = parseFloat(incRow[2]) || 0;
+      incomes.percent   = parseFloat(incRow[3]) || 0;
+      incomes.missing   = incomes.projected - incomes.real;
+    }
+  } catch (e) {
+    Logger.log('incomes error: ' + e.message);
+    incomes.error = e.message;
+  }
+
+  var cashFlow = { projected: 0, real: 0, status: '⚪ —' };
+  try {
+    cashFlow.projected = incomes.projected - budget.total;
+    cashFlow.real      = incomes.real - budget.spent;
+    if (incomes.projected === 0) {
+      cashFlow.status = '⚠️ Define ingresos primero';
+    } else if (cashFlow.real > 0) {
+      cashFlow.status = '🟢 Positivo';
+    } else if (cashFlow.real === 0) {
+      cashFlow.status = '⚪ Equilibrio';
+    } else if (cashFlow.real >= cashFlow.projected) {
+      cashFlow.status = '🟠 Déficit menor al plan';
+    } else {
+      cashFlow.status = '🔴 Déficit';
+    }
+  } catch (e) {
+    Logger.log('cashFlow error: ' + e.message);
+    cashFlow.error = e.message;
+  }
+
+  var pacing = { monthElapsed: 0, budgetUsed: 0, diff: 0, status: '⚪ —' };
+  try {
+    var nowDate = new Date();
+    var dayOfMonth = nowDate.getDate();
+    var lastDay = new Date(nowDate.getFullYear(), nowDate.getMonth() + 1, 0).getDate();
+    pacing.monthElapsed = dayOfMonth / lastDay;
+    pacing.budgetUsed   = budget.percent;
+    pacing.diff         = pacing.monthElapsed - pacing.budgetUsed;
+    if (pacing.budgetUsed > 1)        pacing.status = '🚨 Sobregiro';
+    else if (pacing.diff >= 0.1)      pacing.status = '🟢 Adelantado';
+    else if (pacing.diff <= -0.1)     pacing.status = '🔴 Atrasado';
+    else                               pacing.status = '🟡 En línea';
+  } catch (e) {
+    Logger.log('pacing error: ' + e.message);
+    pacing.error = e.message;
+  }
+
+  var topExpenses = [];
+  try {
+    var topData = presupSheet.getRange(5, 1, 80, 8).getValues();
+    var topCandidates = [];
+    for (var t = 0; t < topData.length; t++) {
+      var s = parseFloat(topData[t][4]) || 0;
+      if (s > 0) {
+        topCandidates.push({
+          category: topData[t][1],
+          subcategory: topData[t][2],
+          spent: s
+        });
+      }
+    }
+    topCandidates.sort(function(a, b) { return b.spent - a.spent; });
+    topExpenses = topCandidates.slice(0, 5);
+  } catch (e) {
+    Logger.log('topExpenses error: ' + e.message);
+  }
+
+  var monthlyTrend = [];
+  try {
+    var histSheet = ss.getSheetByName(TAB.HISTORIAL);
+    var histLast = histSheet.getLastRow();
+    if (histLast >= 5) {
+      var histData = histSheet.getRange(5, 1, histLast - 4, 7).getValues();
+      var aggMap = {};
+      for (var h = 0; h < histData.length; h++) {
+        var rd = histData[h][0];
+        // Sólo filas donde col A es fecha (excluye filas TOTAL en texto y títulos)
+        if (!(rd instanceof Date)) continue;
+        var rdP = parseFloat(histData[h][3]) || 0;
+        var rdR = parseFloat(histData[h][4]) || 0;
+        var key = rd.getFullYear() + '-' + ('0' + (rd.getMonth() + 1)).slice(-2);
+        if (!aggMap[key]) aggMap[key] = { month: key, presupuesto: 0, gastado: 0 };
+        aggMap[key].presupuesto += rdP;
+        aggMap[key].gastado     += rdR;
+      }
+      var arr = [];
+      for (var k in aggMap) arr.push(aggMap[k]);
+      arr.forEach(function(m) {
+        m.percent = m.presupuesto > 0 ? m.gastado / m.presupuesto : 0;
+      });
+      arr.sort(function(a, b) { return b.month.localeCompare(a.month); });
+      monthlyTrend = arr.slice(0, 6);
+    }
+  } catch (e) {
+    Logger.log('monthlyTrend error: ' + e.message);
+  }
+
   return {
     success: true,
     budget: budget,
     categories: categories,
     alerts: alerts,
-    recentTransactions: recentTx
+    recentTransactions: recentTx,
+    // Campos nuevos (la PWA puede ignorarlos hasta una iteración futura)
+    incomes: incomes,
+    cashFlow: cashFlow,
+    pacing: pacing,
+    topExpenses: topExpenses,
+    monthlyTrend: monthlyTrend
   };
 }
 
@@ -700,6 +845,160 @@ function formatDate(date) {
   var month = ('0' + (d.getMonth() + 1)).slice(-2);
   var day = ('0' + d.getDate()).slice(-2);
   return year + '-' + month + '-' + day;
+}
+
+// ============================================================
+// HELPERS NUEVOS — Archivado de ingresos
+// ============================================================
+
+/**
+ * Archiva las filas de "Ingresos Mes Activo" al "Historial Mensual"
+ * para el mes que se está cerrando.
+ *
+ * Estructura de fila archivada (mismas 9 columnas que gastos):
+ *   A: Fecha (1° del mes archivado)
+ *   B: "📥 " + categoría original (prefijo distingue ingreso de gasto)
+ *   C: Subcategoría
+ *   D: Proyectado
+ *   E: Real
+ *   F: Varianza (Real - Proyectado, positivo = excedió proyección)
+ *   G: % cumplimiento (Real / Proyectado)
+ *   H: Estado (emoji)
+ *   I: Notas (vacío)
+ *
+ * Idempotencia: si ya hay filas de ingreso archivadas para mesActivo
+ * (detectado por col B con prefijo "📥" + col A coincidiendo con el mes),
+ * la función NO duplica — retorna { archived: 0, alreadyArchived: true }.
+ *
+ * Caso vacío: si no hay ingresos llenos en el mes, escribe UNA fila
+ * marcadora "📥 INGRESO / Ingresos no registrados" para dejar constancia
+ * del mes sin datos en el histórico.
+ */
+function archiveIncomes(ss, mesActivo) {
+  var incSheet = ss.getSheetByName('Ingresos Mes Activo');
+  var histSheet = ss.getSheetByName(TAB.HISTORIAL);
+
+  if (!incSheet) {
+    Logger.log('archiveIncomes: pestaña "Ingresos Mes Activo" no existe, skipping');
+    return { archived: 0, alreadyArchived: false, error: 'Sheet no encontrada' };
+  }
+
+  // Idempotencia: ¿ya hay filas de ingreso archivadas para este mes?
+  var histLast = histSheet.getLastRow();
+  if (histLast >= 5) {
+    var checkData = histSheet.getRange(5, 1, histLast - 4, 2).getValues();
+    for (var c = 0; c < checkData.length; c++) {
+      var rowDate = checkData[c][0];
+      var rowCat  = checkData[c][1];
+      if (rowDate instanceof Date && typeof rowCat === 'string' && rowCat.indexOf('📥') === 0) {
+        var rowMonth = rowDate.getFullYear() + '-' + ('0' + (rowDate.getMonth() + 1)).slice(-2);
+        if (rowMonth === mesActivo) {
+          Logger.log('archiveIncomes: ingresos para ' + mesActivo + ' ya archivados, skipping');
+          return { archived: 0, alreadyArchived: true };
+        }
+      }
+    }
+  }
+
+  // Leer datos de Ingresos Mes Activo (filas 5-15, 11 categorías)
+  var incData = incSheet.getRange(5, 1, 11, 8).getValues();
+  var dateValue = parseMonthToDate(mesActivo);
+
+  var rowsToWrite = [];
+  var totalProj = 0;
+  var totalReal = 0;
+
+  for (var j = 0; j < incData.length; j++) {
+    var row = incData[j];
+    var proj = parseFloat(row[3]) || 0;
+    var real = parseFloat(row[4]) || 0;
+
+    if (proj > 0 || real > 0) {
+      rowsToWrite.push([
+        dateValue,
+        '📥 ' + (row[1] || ''),
+        row[2] || '',
+        proj,
+        real,
+        real - proj,
+        proj > 0 ? real / proj : (real > 0 ? 1 : 0),
+        getIncomeStatusEmoji(proj, real),
+        ''
+      ]);
+      totalProj += proj;
+      totalReal += real;
+    }
+  }
+
+  // Caso vacío: marcador para dejar constancia del mes sin datos
+  if (rowsToWrite.length === 0) {
+    rowsToWrite.push([
+      dateValue,
+      '📥 INGRESO',
+      'Ingresos no registrados',
+      0, 0, 0, 0, '⚪ Sin datos', ''
+    ]);
+  } else {
+    // Fila TOTAL de ingresos del mes
+    rowsToWrite.push([
+      dateValue,
+      '📥 TOTAL INGRESOS',
+      '',
+      totalProj,
+      totalReal,
+      totalReal - totalProj,
+      totalProj > 0 ? totalReal / totalProj : 0,
+      getIncomeStatusEmoji(totalProj, totalReal),
+      ''
+    ]);
+  }
+
+  // Escribir al final del Historial
+  var writeRow = histSheet.getLastRow() + 1;
+  histSheet.getRange(writeRow, 1, rowsToWrite.length, 9).setValues(rowsToWrite);
+
+  Logger.log('archiveIncomes: escritas ' + rowsToWrite.length + ' filas para ' + mesActivo);
+  return { archived: rowsToWrite.length, alreadyArchived: false };
+}
+
+/**
+ * Limpia la columna E (Real) de Ingresos Mes Activo, filas 5-15.
+ * Plantilla Ingresos NO se toca — es la base recurrente y debe
+ * mantenerse mes a mes. Solo limpiamos el "Real" para que el nuevo
+ * mes empiece sin valores fantasma del mes anterior.
+ */
+function resetIncomeReals(ss) {
+  var incSheet = ss.getSheetByName('Ingresos Mes Activo');
+  if (!incSheet) {
+    Logger.log('resetIncomeReals: pestaña no existe, skipping');
+    return;
+  }
+  incSheet.getRange(5, 5, 11, 1).clearContent();
+  Logger.log('resetIncomeReals: limpiada columna E5:E15');
+}
+
+/**
+ * Convierte string "YYYY-MM" a Date apuntando al 1° de ese mes.
+ * Ej: "2026-05" → Date(2026, 4, 1) → 1 de mayo de 2026.
+ */
+function parseMonthToDate(monthStr) {
+  var parts = String(monthStr).split('-');
+  var year = parseInt(parts[0], 10);
+  var month = parseInt(parts[1], 10) - 1; // JS months son 0-indexed
+  return new Date(year, month, 1);
+}
+
+/**
+ * Status emoji para una fila de ingreso, basado en proyectado vs real.
+ * Lógica espejo de la del Sheet (E5:E15 col Estado).
+ */
+function getIncomeStatusEmoji(projected, real) {
+  if (projected === 0 && real === 0) return '⚪ —';
+  if (projected === 0 && real > 0)  return '🟢 Bonus';
+  var pct = real / projected;
+  if (pct >= 1)   return '🟢 Cumplido';
+  if (pct >= 0.8) return '🟡 Cerca';
+  return '🔴 Falta';
 }
 
 function jsonResponse(data) {

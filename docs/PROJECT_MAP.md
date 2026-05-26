@@ -1,7 +1,7 @@
 # Abundapp — Project Map (AUTHORITATIVE)
 
 > Single source of truth for every piece of Abundapp.
-> Last verified: 2026-04-19 (cross-checked against Notion master doc)
+> Last verified: 2026-05-07 (post-deploy of income tracking + Dashboard redesign)
 > Master doc in Notion: https://www.notion.so/31dabb3a77da8065bc45ce9774759ffe
 
 ---
@@ -102,7 +102,7 @@ Deep technical docs live separately on the Mac — originally created for AI age
 
 ---
 
-## GOOGLE SHEET — 8 tabs
+## GOOGLE SHEET — 10 tabs
 
 | Tab | Purpose |
 |---|---|
@@ -110,10 +110,12 @@ Deep technical docs live separately on the Mac — originally created for AI age
 | Transacciones | All registered expenses (auto-ID and auto-month formulas) |
 | Plantilla Presupuesto | Base budget amounts per subcategory (copied each month) |
 | Presupuesto Mes Activo | Current month budget vs actual (SUMIFS) |
-| Historial Mensual | Archive of closed months with totals |
-| Dashboard | Aggregated KPIs |
+| Historial Mensual | Archive of closed months with totals. Stores both expenses (no prefix in col B) and incomes (prefix `📥 ` in col B). Col A is a Date (serial number), NOT a string. |
+| Dashboard | Two zones: Legacy (rows 1-28, read by API) + Analysis (rows 30-74, Sheet-view only with Ingresos/Cash Flow/Pacing/Alertas/Top5/Tendencia) |
 | Notas | Family financial notes |
 | Config | Payment methods and users |
+| **Plantilla Ingresos** *(NEW)* | Base recurring income template — 11 categories incl. Sueldo JD, Sueldo Nicolle, Expansora |
+| **Ingresos Mes Activo** *(NEW)* | Live month income tracking — Proyectado (formula) / Real (manual) / Varianza / % / Estado |
 
 Spreadsheet location in Drive:
 ```
@@ -169,5 +171,7 @@ Dedicated Claude skill: **`/abundapp-health`**
 ## KNOWN ISSUES TO RESOLVE
 
 1. ~~**GitHub repo is PUBLIC**~~ — resolved 2026-04-19, now private ✓
-2. **3 local commits unpushed** (incl. the Cloudflare Access SW fix) — blocked on GitHub token write permissions. Push via GitHub Desktop or regenerate token with Contents: Read and Write.
-3. **Apps Script sync** — behaviorally verified (all 12 endpoints respond correctly per Code.gs). Byte-match not confirmed; requires opening the Apps Script editor. Low priority.
+2. ~~**3 local commits unpushed**~~ — resolved 2026-05-06 ✓
+3. **Apps Script sync** — Code.gs in repo is now at 1160 lines (post-Mayo 2026 income tracking). Behaviorally verified post-deploy (getDashboard returns new fields). Always copy from `apps-script/Code.gs` to the Apps Script editor when changes are made.
+4. **closeMonth missed TOTAL row for Marzo 2026** — bug in closeMonth at the time of cierre de marzo. Abril has TOTAL row, marzo does not. Doesn't affect monthlyTrend (which aggregates by date, not by TOTAL marker). Low priority, fix when convenient.
+5. **closeMonth income archival pending real validation** — the closeMonth() function now archives incomes too (deployed 2026-05-07). First real test will be on 2026-06-01 when checkMonth() auto-fires for May closure. Worth observing.
