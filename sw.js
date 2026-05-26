@@ -1,4 +1,4 @@
-const CACHE_NAME = 'abundapp-v4';
+const CACHE_NAME = 'abundapp-v5';
 const ASSETS = [
   '/',
   '/index.html',

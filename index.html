@@ -1228,13 +1228,14 @@ function init() {
   renderResumen();
   renderBacklog();
   updateSyncBadge();
-  // Sync: preseleccionar usuario desde localStorage (instantáneo, sin red)
-  // Garantiza que el campo nunca arranque en blanco en aperturas repetidas.
+  // Preseleccionar usuario desde localStorage (instantáneo, sin red).
+  // Si nunca se ha guardado → mostrar prompt de primera vez.
   const _savedUser = localStorage.getItem('abundapp_default_user');
-  if (_savedUser) document.getElementById('usuario').value = _savedUser;
-  // Async: verificar/actualizar via Cloudflare Access identity
-  // (actualiza localStorage si cambia el usuario o es la primera vez)
-  detectLoggedInUser();
+  if (_savedUser) {
+    document.getElementById('usuario').value = _savedUser;
+  } else {
+    showFirstUseUserPrompt();
+  }
   // Flush borrados pendientes antes de hacer pull (evita zombies)
   flushDeleteQueue();
   // Pull desde Sheets al abrir (sync bidireccional)
@@ -1271,6 +1272,51 @@ async function detectLoggedInUser() {
       if (sel) sel.value = saved;
     }
   }
+}
+
+/* ══════════════════════════════════════
+   FIRST-USE USER PROMPT
+   Aparece UNA sola vez si localStorage no tiene un usuario guardado.
+   Sin depender de Cloudflare Access identity (endpoint no funcional).
+   ══════════════════════════════════════ */
+function showFirstUseUserPrompt() {
+  if (document.getElementById('first-use-overlay')) return; // ya visible
+  const overlay = document.createElement('div');
+  overlay.id = 'first-use-overlay';
+  overlay.style.cssText = [
+    'position:fixed','top:0','left:0','right:0','bottom:0',
+    'background:rgba(28,43,28,0.93)','z-index:9999',
+    'display:flex','align-items:center','justify-content:center',
+    'flex-direction:column','gap:20px','padding:32px','text-align:center'
+  ].join(';');
+  overlay.innerHTML = `
+    <div style="font-size:48px">🏠</div>
+    <p style="color:#fff;font-size:20px;font-weight:700;margin:0;line-height:1.3">
+      ¿Quién está usando<br>este dispositivo?
+    </p>
+    <p style="color:#aaa;font-size:13px;margin:0">Solo te preguntamos esta vez</p>
+    <button onclick="setDeviceUser('Juan David')"
+      style="width:220px;padding:18px;font-size:17px;border-radius:14px;
+             border:none;background:#4CAF50;color:#fff;cursor:pointer;font-weight:700;
+             box-shadow:0 4px 12px rgba(76,175,80,0.4)">
+      👨 Juan David
+    </button>
+    <button onclick="setDeviceUser('Nicolle')"
+      style="width:220px;padding:18px;font-size:17px;border-radius:14px;
+             border:none;background:#E91E8C;color:#fff;cursor:pointer;font-weight:700;
+             box-shadow:0 4px 12px rgba(233,30,140,0.4)">
+      👩 Nicolle
+    </button>
+  `;
+  document.body.appendChild(overlay);
+}
+
+function setDeviceUser(user) {
+  localStorage.setItem('abundapp_default_user', user);
+  const sel = document.getElementById('usuario');
+  if (sel) sel.value = user;
+  const overlay = document.getElementById('first-use-overlay');
+  if (overlay) overlay.remove();
 }
 
 async function autoCheckMonth() {
