@@ -1,7 +1,7 @@
 # Abundapp — Project Map (AUTHORITATIVE)
 
 > Single source of truth for every piece of Abundapp.
-> Last verified: 2026-05-27 (post-deploy of Budget Alert Banner — Fase 1.2 del roadmap 2026)
+> Last verified: 2026-05-27 (post-deploy of Fase 1.2 banner + SW v6 hotfix; PR #7 auto-load+v7 pending merge)
 > Master doc in Notion: https://www.notion.so/31dabb3a77da8065bc45ce9774759ffe
 
 ---
@@ -145,11 +145,13 @@ Claudio will:
 4. Commit with a clear message
 5. Push to GitHub → auto-deploys to `abundapp.pages.dev`
 6. If `Code.gs` changed: also update the deployed Apps Script (Sheet → Extensions → Apps Script → paste → Deploy new version)
+7. **If `index.html` changed: bump `sw.js` `CACHE_NAME` (vN → vN+1).** Sin este bump, el SW sirve la versión cacheada vieja y los usuarios no ven los cambios. Lección aprendida 2026-05-27.
 
 **Never:**
 - Edit files directly in Google Drive archive
 - Push to `main` without testing
 - Expose the API key in a public repo
+- Modificar `index.html` sin bumpear `sw.js` (regla de oro post-2026-05-27)
 
 ---
 
@@ -158,7 +160,8 @@ Claudio will:
 Dedicated Claude skill: **`/abundapp-health`**
 
 - Location: `~/.claude/skills/abundapp-health/`
-- What it does: runs 14 checks (live app, backend, auth, repo, drift), writes a dated report, detects when new Apps Script actions or PWA features are added and prompts to extend coverage
+- What it does: runs ~23 checks (live app, backend, auth, repo, drift, Fase 1.1 + 1.2 features), writes a dated report, detects when new Apps Script actions or PWA features are added and prompts to extend coverage
+- Version 1.3.0 (2026-05-27) extends coverage with chips/banner checks and SW min version v6
 - Reports: `~/.claude/skills/abundapp-health/reports/YYYY-MM-DD-HHMM.md`
 - Baseline: `~/.claude/skills/abundapp-health/state.json`
 - Check registry: `~/.claude/skills/abundapp-health/checks.json`
