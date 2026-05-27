@@ -289,6 +289,76 @@ header .header-text p{font-size:.8rem;opacity:.85;font-weight:500;line-height:1.
 }
 .alert-close:active{background:rgba(0,0,0,.05);color:var(--text)}
 
+/* ── Dashboard cards (Resumen tab) — Fase 2.1 ── */
+.dash-card{
+  background:var(--card);
+  border-radius:var(--radius);
+  padding:1.1rem 1rem;
+  box-shadow:var(--shadow);
+  margin-bottom:1rem;
+}
+.dash-card-title{
+  font-size:.78rem;font-weight:700;
+  color:var(--primary-dark);
+  text-transform:uppercase;letter-spacing:.5px;
+  margin-bottom:.85rem;
+}
+
+/* Cash flow grid */
+.dash-flow-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.6rem;margin-bottom:.7rem}
+.df-cell{text-align:center;padding:.5rem .3rem;background:#F9FAFB;border-radius:8px}
+.df-label{font-size:.6rem;text-transform:uppercase;color:var(--text-light);font-weight:700;letter-spacing:.4px}
+.df-value{font-size:1.05rem;font-weight:800;margin-top:3px;color:var(--text);letter-spacing:-.2px}
+.df-value.positive{color:var(--primary)}
+.df-value.negative{color:var(--danger)}
+.df-status{font-size:.78rem;text-align:center;color:var(--text);font-weight:600;padding:.5rem;border-radius:8px;background:#F1F8F1}
+
+/* Pacing */
+.pacing-rows{display:flex;flex-direction:column;gap:.65rem}
+.pacing-row{display:grid;grid-template-columns:110px 1fr 45px;gap:.5rem;align-items:center}
+.pr-label{font-size:.65rem;color:var(--text-light);font-weight:700;text-transform:uppercase;letter-spacing:.3px}
+.pr-bar{height:9px;background:var(--border);border-radius:5px;overflow:hidden}
+.pr-fill{height:100%;transition:width .5s ease}
+.pr-fill.pr-blue{background:#2196F3}
+.pr-fill.pr-green{background:var(--primary)}
+.pr-fill.pr-yellow{background:#FFC107}
+.pr-fill.pr-orange{background:#FF9800}
+.pr-fill.pr-red{background:var(--danger)}
+.pr-pct{font-size:.8rem;font-weight:800;text-align:right;color:var(--text);letter-spacing:-.3px}
+.pacing-status{margin-top:.8rem;font-size:.8rem;text-align:center;font-weight:600;padding:.5rem;border-radius:8px;background:#F5F5F5}
+
+/* Trend bars (6 meses) */
+.trend-bars{display:flex;align-items:flex-end;justify-content:space-between;gap:.4rem;height:140px;padding:18px 0 26px 0;position:relative}
+.trend-bar-col{flex:1;display:flex;flex-direction:column;align-items:center;height:100%;position:relative}
+.trend-bar{
+  width:75%;
+  background:linear-gradient(to top,var(--primary) 0%,#A5D6A7 100%);
+  border-radius:5px 5px 0 0;
+  min-height:3px;
+  transition:height .5s ease;
+  position:absolute;bottom:26px;
+}
+.trend-bar.current{
+  background:linear-gradient(to top,var(--primary-dark) 0%,var(--primary) 100%);
+  box-shadow:0 0 0 2px rgba(76,175,80,.2);
+}
+.trend-bar-value{position:absolute;bottom:calc(100% + 4px);font-size:.6rem;font-weight:700;color:var(--text-light);white-space:nowrap}
+.trend-bar-label{position:absolute;bottom:0;font-size:.62rem;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:.3px}
+
+/* Insights */
+.insights-list{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:.55rem}
+.insights-list li{
+  font-size:.85rem;line-height:1.45;color:var(--text);
+  padding:.6rem .75rem;border-radius:8px;
+  background:#F1F8F1;
+  border-left:3px solid var(--primary);
+}
+.insights-list li.warn{border-left-color:#FF9800;background:#FFF8F1}
+.insights-list li.bad{border-left-color:var(--danger);background:#FFF5F5}
+.insights-list li strong{color:var(--primary-dark);font-weight:800}
+.insights-list li.warn strong{color:#E65100}
+.insights-list li.bad strong{color:var(--danger-dark)}
+
 /* ── Month selector ── */
 .month-selector{
   display:flex;
@@ -1044,6 +1114,58 @@ header .header-text p{font-size:.8rem;opacity:.85;font-weight:500;line-height:1.
   <!-- Comparación mes anterior -->
   <div class="compare-card" id="res-compare" style="display:none"></div>
 
+  <!-- ═══ Fase 2.1: Dashboard cards (solo mes actual) ═══ -->
+
+  <!-- 💵 Cash Flow del mes -->
+  <div class="dash-card" id="res-cashflow-card" style="display:none">
+    <div class="dash-card-title">💵 Cash Flow del mes</div>
+    <div class="dash-flow-grid">
+      <div class="df-cell">
+        <div class="df-label">Ingresos</div>
+        <div class="df-value" id="res-cf-income">$0</div>
+      </div>
+      <div class="df-cell">
+        <div class="df-label">Gastos</div>
+        <div class="df-value" id="res-cf-spent">$0</div>
+      </div>
+      <div class="df-cell">
+        <div class="df-label">Balance</div>
+        <div class="df-value" id="res-cf-balance">$0</div>
+      </div>
+    </div>
+    <div class="df-status" id="res-cf-status">—</div>
+  </div>
+
+  <!-- 🎯 Pacing -->
+  <div class="dash-card" id="res-pacing-card" style="display:none">
+    <div class="dash-card-title">🎯 Pacing del mes</div>
+    <div class="pacing-rows">
+      <div class="pacing-row">
+        <span class="pr-label">Mes transcurrido</span>
+        <div class="pr-bar"><div class="pr-fill pr-blue" id="res-pacing-month-fill" style="width:0%"></div></div>
+        <span class="pr-pct" id="res-pacing-month-pct">0%</span>
+      </div>
+      <div class="pacing-row">
+        <span class="pr-label">Presupuesto</span>
+        <div class="pr-bar"><div class="pr-fill pr-green" id="res-pacing-budget-fill" style="width:0%"></div></div>
+        <span class="pr-pct" id="res-pacing-budget-pct">0%</span>
+      </div>
+    </div>
+    <div class="pacing-status" id="res-pacing-status">—</div>
+  </div>
+
+  <!-- 📈 Tendencia 6 meses -->
+  <div class="dash-card" id="res-trend-card" style="display:none">
+    <div class="dash-card-title">📈 Tendencia 6 meses</div>
+    <div class="trend-bars" id="res-trend-bars"></div>
+  </div>
+
+  <!-- 💡 Insights automáticos -->
+  <div class="dash-card" id="res-insights-card" style="display:none">
+    <div class="dash-card-title">💡 Insights del mes</div>
+    <ul class="insights-list" id="res-insights-list"></ul>
+  </div>
+
   <!-- Gráfico barras verticales: top 10 categorías -->
   <div class="chart-card" id="chart-cats-card" style="display:none">
     <div class="chart-card-title">&#128202; Top 10 categorías</div>
@@ -1773,7 +1895,7 @@ function switchTab(tab) {
   document.querySelectorAll('.section').forEach(s => s.classList.toggle('active', s.id === 'tab-' + tab));
   if (tab === 'registro') renderAlertBanner();
   if (tab === 'historial') { renderHistory(); pullFromSheets(); }
-  if (tab === 'resumen') renderResumen();
+  if (tab === 'resumen') { renderResumen(); loadResumenDashboard(); }
   if (tab === 'presupuestos') { if (!budgetLoaded) loadBudgetData(); else renderBudget(); }
   if (tab === 'proximo') renderBacklog();
 }
@@ -1831,6 +1953,7 @@ function changeMonthResumen(dir) {
   if (resumenMonth < 0) { resumenMonth = 11; resumenYear--; }
   updateResumenMonthLabel();
   renderResumen();
+  loadResumenDashboard(); // muestra/oculta cards Fase 2.1 según mes
 }
 
 function updateResumenMonthLabel() {
@@ -2045,6 +2168,192 @@ function getResumenFilteredExpenses() {
     );
   }
   return data;
+}
+
+/* ══════════════════════════════════════
+   RESUMEN PRO — Fase 2.1
+   Llama getDashboard del backend y pinta 4 cards en tab Resumen:
+   Cash Flow, Pacing, Tendencia 6m, Insights automáticos.
+   Solo se muestra cuando el usuario está navegando el MES ACTUAL
+   (porque getDashboard devuelve datos del mes activo del Sheet).
+   Cache 5 min en memoria.
+   ══════════════════════════════════════ */
+let resumenDashboardCache = null;
+let resumenDashboardCacheTime = 0;
+const DASHBOARD_CACHE_MS = 5 * 60 * 1000;
+const DASH_CARD_IDS = ['res-cashflow-card','res-pacing-card','res-trend-card','res-insights-card'];
+
+function hideAllDashCards() {
+  DASH_CARD_IDS.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+}
+
+function isViewingCurrentMonth() {
+  const now = new Date();
+  return resumenMonth === now.getMonth() && resumenYear === now.getFullYear();
+}
+
+async function loadResumenDashboard() {
+  if (!isViewingCurrentMonth()) { hideAllDashCards(); return; }
+  // Cache 5 min — evita llamar getDashboard en cada renderResumen
+  if (resumenDashboardCache && (Date.now() - resumenDashboardCacheTime) < DASHBOARD_CACHE_MS) {
+    renderDashCards(resumenDashboardCache);
+    return;
+  }
+  try {
+    const data = await apiCall('getDashboard');
+    if (data && data.success) {
+      resumenDashboardCache = data;
+      resumenDashboardCacheTime = Date.now();
+      renderDashCards(data);
+    } else {
+      hideAllDashCards();
+    }
+  } catch (e) {
+    // Silencio — sin conexión, los cards quedan ocultos
+    hideAllDashCards();
+  }
+}
+
+function renderDashCards(d) {
+  renderCashFlowCard(d);
+  renderPacingCard(d);
+  renderTrendCard(d);
+  renderInsightsCard(d);
+}
+
+function renderCashFlowCard(d) {
+  const card = document.getElementById('res-cashflow-card');
+  if (!card || !d.incomes || !d.cashFlow || !d.budget) { if (card) card.style.display='none'; return; }
+  card.style.display = 'block';
+  const income = d.incomes.real || 0;
+  const spent = d.budget.spent || 0;
+  document.getElementById('res-cf-income').textContent = formatMoney(income);
+  document.getElementById('res-cf-spent').textContent = formatMoney(spent);
+  const balance = income - spent;
+  const balEl = document.getElementById('res-cf-balance');
+  balEl.textContent = formatMoney(balance);
+  balEl.className = 'df-value ' + (balance >= 0 ? 'positive' : 'negative');
+  document.getElementById('res-cf-status').textContent = d.cashFlow.status || '—';
+}
+
+function renderPacingCard(d) {
+  const card = document.getElementById('res-pacing-card');
+  if (!card || !d.pacing) { if (card) card.style.display='none'; return; }
+  card.style.display = 'block';
+  const monthPct = (d.pacing.monthElapsed || 0) * 100;
+  const budgetPct = (d.pacing.budgetUsed || 0) * 100;
+  document.getElementById('res-pacing-month-fill').style.width = Math.min(monthPct, 100) + '%';
+  document.getElementById('res-pacing-month-pct').textContent = Math.round(monthPct) + '%';
+  const budgetFill = document.getElementById('res-pacing-budget-fill');
+  budgetFill.style.width = Math.min(budgetPct, 100) + '%';
+  let tone = 'pr-green';
+  if (budgetPct > 100) tone = 'pr-red';
+  else if (budgetPct > 90) tone = 'pr-orange';
+  else if (budgetPct > 75) tone = 'pr-yellow';
+  budgetFill.className = 'pr-fill ' + tone;
+  document.getElementById('res-pacing-budget-pct').textContent = Math.round(budgetPct) + '%';
+  document.getElementById('res-pacing-status').textContent = d.pacing.status || '—';
+}
+
+function renderTrendCard(d) {
+  const card = document.getElementById('res-trend-card');
+  const bars = document.getElementById('res-trend-bars');
+  if (!card || !bars || !d.monthlyTrend || d.monthlyTrend.length === 0) {
+    if (card) card.style.display = 'none';
+    return;
+  }
+  card.style.display = 'block';
+  const trend = d.monthlyTrend.slice().sort(function(a,b){ return a.month.localeCompare(b.month); });
+  const maxGastado = Math.max.apply(null, trend.map(function(t){ return t.gastado || 0; }).concat([1]));
+  const now = new Date();
+  const currentMonthKey = now.getFullYear() + '-' + ('0'+(now.getMonth()+1)).slice(-2);
+  bars.innerHTML = trend.map(function(t){
+    const pct = Math.max(2, Math.round((t.gastado / maxGastado) * 75));
+    const isCurrent = t.month === currentMonthKey;
+    const monthIdx = parseInt(t.month.split('-')[1]) - 1;
+    const monthLabel = MONTH_NAMES[monthIdx].slice(0,3);
+    return '<div class="trend-bar-col">' +
+      '<div class="trend-bar' + (isCurrent ? ' current' : '') + '" style="height:' + pct + '%">' +
+        '<div class="trend-bar-value">' + formatMoney(t.gastado) + '</div>' +
+      '</div>' +
+      '<div class="trend-bar-label">' + monthLabel + '</div>' +
+    '</div>';
+  }).join('');
+}
+
+function renderInsightsCard(d) {
+  const card = document.getElementById('res-insights-card');
+  const list = document.getElementById('res-insights-list');
+  if (!card || !list) return;
+  const insights = generateInsights(d);
+  if (!insights.length) { card.style.display = 'none'; return; }
+  card.style.display = 'block';
+  list.innerHTML = insights.map(function(i){
+    return '<li' + (i.tone ? ' class="' + i.tone + '"' : '') + '>' + i.html + '</li>';
+  }).join('');
+}
+
+function generateInsights(d) {
+  const insights = [];
+  // 1. Mayor gasto del mes
+  if (d.topExpenses && d.topExpenses.length > 0) {
+    const t = d.topExpenses[0];
+    insights.push({ html: '<strong>Mayor gasto:</strong> ' + esc(t.subcategory) + ' (' + esc(t.category) + ') — ' + formatMoney(t.spent) });
+  }
+  // 2. Categoría con peor sobregiro
+  if (d.categories && d.categories.length > 0) {
+    const over = d.categories.filter(function(c){ return c.percent > 1; });
+    if (over.length > 0) {
+      const worst = over.slice().sort(function(a,b){ return b.percent - a.percent; })[0];
+      insights.push({
+        tone: 'bad',
+        html: '<strong>Sobregiro:</strong> ' + esc(worst.name) + ' al ' + Math.round(worst.percent*100) + '% (' + formatMoney(worst.spent) + ' / ' + formatMoney(worst.budget) + ')'
+      });
+    }
+    const healthy = d.categories.filter(function(c){ return c.budget > 0 && c.percent > 0 && c.percent < 0.5; }).length;
+    if (healthy >= 3) {
+      insights.push({ html: '<strong>Bien:</strong> ' + healthy + ' categorías van por debajo del 50% del presupuesto' });
+    }
+  }
+  // 3. Pacing interpretado
+  if (d.pacing && typeof d.pacing.diff === 'number') {
+    const monthPct = Math.round((d.pacing.monthElapsed || 0) * 100);
+    const budgetPct = Math.round((d.pacing.budgetUsed || 0) * 100);
+    if (d.pacing.budgetUsed > 1) {
+      insights.push({ tone: 'bad', html: '<strong>Pacing:</strong> Llevas ' + monthPct + '% del mes y ya rebasaste el presupuesto (' + budgetPct + '%)' });
+    } else if (d.pacing.diff < -0.1) {
+      insights.push({ tone: 'warn', html: '<strong>Pacing:</strong> Llevas ' + monthPct + '% del mes y ' + budgetPct + '% del presupuesto — vas atrasado' });
+    } else if (d.pacing.diff >= 0.1) {
+      insights.push({ html: '<strong>Pacing:</strong> Llevas ' + monthPct + '% del mes y solo ' + budgetPct + '% del presupuesto — vas adelantado' });
+    }
+  }
+  // 4. Delta vs último mes cerrado: gasto del mes actual (d.budget.spent) vs el más reciente de monthlyTrend
+  if (d.budget && d.budget.spent > 0 && d.monthlyTrend && d.monthlyTrend.length >= 1) {
+    // Backend devuelve monthlyTrend ordenado DESC, primer elemento = último cerrado
+    const lastClosed = d.monthlyTrend[0];
+    if (lastClosed && lastClosed.gastado > 0) {
+      const delta = ((d.budget.spent - lastClosed.gastado) / lastClosed.gastado) * 100;
+      if (Math.abs(delta) > 10) {
+        const dir = delta > 0 ? 'más' : 'menos';
+        const tone = delta > 0 ? 'warn' : '';
+        const prevMonthLabel = MONTH_NAMES[parseInt(lastClosed.month.split('-')[1]) - 1];
+        insights.push({ tone: tone, html: '<strong>Vs ' + prevMonthLabel + ':</strong> Gastaste ' + Math.abs(Math.round(delta)) + '% ' + dir + ' (' + formatMoney(d.budget.spent) + ' vs ' + formatMoney(lastClosed.gastado) + ')' });
+      }
+    }
+  }
+  // 5. Cash flow ratio
+  if (d.cashFlow && d.incomes && d.incomes.real > 0 && d.budget && d.budget.spent >= 0) {
+    const ratio = d.budget.spent / d.incomes.real;
+    if (ratio < 0.5) {
+      insights.push({ html: '<strong>Ahorro:</strong> Usaste ' + Math.round(ratio*100) + '% de tus ingresos — buen colchón' });
+    } else if (ratio > 1) {
+      insights.push({ tone: 'bad', html: '<strong>Gastando más de lo que ingresas</strong> — déficit del mes' });
+    }
+  }
+  return insights;
 }
 
 /* ══════════════════════════════════════
