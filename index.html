@@ -1336,6 +1336,12 @@ function init() {
     if (added > 0) showToast('⬇️ ' + added + ' gasto' + (added !== 1 ? 's' : '') + ' importado' + (added !== 1 ? 's' : '') + ' de Sheets');
     renderQuickEntries();
   });
+  // Carga proactiva de presupuestos para que el banner de alertas aparezca
+  // al abrir la app (sin obligar al usuario a visitar tab Presupuestos primero).
+  // Silencioso: si falla, no muestra error — el banner simplemente queda oculto.
+  if (!budgetLoaded) {
+    loadBudgetData().catch(function() { /* silencioso */ });
+  }
   // Auto-cierre de mes: verificar si el mes activo en el Sheet ya pasó
   autoCheckMonth();
 }
