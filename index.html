@@ -211,6 +211,54 @@ header .header-text p{font-size:.8rem;opacity:.85;font-weight:500;line-height:1.
 .summary-card .value.accent{color:var(--accent-dark)}
 .summary-card .value small{font-size:.95rem;font-weight:700}
 
+/* ── Quick-entry chips (Registro tab) ── */
+.quick-entries{margin-top:1.25rem}
+.quick-entries-title{
+  display:flex;align-items:center;gap:.4rem;
+  font-size:.72rem;font-weight:700;
+  color:var(--primary-dark);
+  text-transform:uppercase;letter-spacing:.5px;
+  margin-bottom:.6rem;
+}
+.quick-entries-hint{
+  font-size:.7rem;color:var(--text-light);
+  font-weight:500;text-transform:none;letter-spacing:0;
+  margin-left:auto;
+}
+.quick-chip-grid{display:flex;flex-wrap:wrap;gap:.5rem}
+.quick-chip{
+  background:var(--card);
+  border:1.5px solid var(--border);
+  border-radius:14px;
+  padding:.55rem .75rem;
+  font-size:.82rem;
+  color:var(--text);
+  cursor:pointer;
+  display:flex;align-items:center;gap:.4rem;
+  box-shadow:var(--shadow);
+  transition:all .15s;
+  -webkit-tap-highlight-color:transparent;
+  font-family:inherit;
+}
+.quick-chip:active{
+  transform:scale(.96);
+  border-color:var(--primary);
+  background:#F1F8F1;
+}
+.quick-chip .qc-amount{font-weight:800;color:var(--primary-dark)}
+.quick-chip .qc-sub{color:var(--text-light);font-size:.78rem;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.quick-chip .qc-count{
+  background:var(--primary);
+  color:#fff;
+  border-radius:9px;
+  font-size:.62rem;
+  font-weight:700;
+  padding:1px 6px;
+  margin-left:.2rem;
+}
+@keyframes btnPulse{0%,100%{box-shadow:0 4px 14px rgba(76,175,80,.3)}50%{box-shadow:0 4px 22px rgba(76,175,80,.65)}}
+.btn-pulse{animation:btnPulse .6s ease-in-out 2}
+
 /* ── Month selector ── */
 .month-selector{
   display:flex;
@@ -827,6 +875,15 @@ header .header-text p{font-size:.8rem;opacity:.85;font-weight:500;line-height:1.
       <button type="submit" class="btn btn-primary" id="submit-btn">Registrar Gasto</button>
     </form>
   </div>
+
+  <!-- ⚡ Entradas frecuentes: top combos (cat, sub, monto) de los últimos 60 días -->
+  <div class="quick-entries" id="quick-entries" style="display:none">
+    <div class="quick-entries-title">
+      <span>⚡ Entradas frecuentes</span>
+      <span class="quick-entries-hint">Toca para pre-llenar</span>
+    </div>
+    <div class="quick-chip-grid" id="quick-chip-grid"></div>
+  </div>
 </section>
 
 <!-- ═══ TAB: HISTORIAL ═══ -->
@@ -1227,6 +1284,7 @@ function init() {
   renderHistory();
   renderResumen();
   renderBacklog();
+  renderQuickEntries();
   updateSyncBadge();
   // Preseleccionar usuario desde localStorage (instantáneo, sin red).
   // Si nunca se ha guardado → mostrar prompt de primera vez.
@@ -1241,6 +1299,7 @@ function init() {
   // Pull desde Sheets al abrir (sync bidireccional)
   pullFromSheets().then(function(added) {
     if (added > 0) showToast('⬇️ ' + added + ' gasto' + (added !== 1 ? 's' : '') + ' importado' + (added !== 1 ? 's' : '') + ' de Sheets');
+    renderQuickEntries();
   });
   // Auto-cierre de mes: verificar si el mes activo en el Sheet ya pasó
   autoCheckMonth();
@@ -1495,6 +1554,73 @@ function updateEditSubcategories(preselect) {
 }
 
 /* ══════════════════════════════════════
+   QUICK ENTRIES (entradas frecuentes)
+   Top combos (categoria, subcategoria, monto redondeado a $0.50)
+   de los últimos 60 días. Tap pre-llena el form sin enviar.
+   ══════════════════════════════════════ */
+const QUICK_ENTRIES_DAYS = 60;
+const QUICK_ENTRIES_MAX = 8;
+const QUICK_ENTRIES_MIN_COUNT = 2;
+
+function computeFrequentEntries() {
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - QUICK_ENTRIES_DAYS);
+  const cutoffStr = formatDateInput(cutoff);
+  const counts = {};
+  expenses.forEach(e => {
+    if (!e.categoria || !e.subcategoria || !e.monto) return;
+    if (e.fecha && e.fecha < cutoffStr) return;
+    const rounded = Math.round(e.monto * 2) / 2;
+    if (rounded <= 0) return;
+    const key = e.categoria + '|' + e.subcategoria + '|' + rounded.toFixed(2);
+    if (!counts[key]) {
+      counts[key] = { categoria: e.categoria, subcategoria: e.subcategoria, monto: rounded, count: 0 };
+    }
+    counts[key].count++;
+  });
+  const arr = Object.values(counts).filter(c => c.count >= QUICK_ENTRIES_MIN_COUNT);
+  arr.sort((a, b) => b.count - a.count || b.monto - a.monto);
+  return arr.slice(0, QUICK_ENTRIES_MAX);
+}
+
+function renderQuickEntries() {
+  const grid = document.getElementById('quick-chip-grid');
+  const wrap = document.getElementById('quick-entries');
+  if (!grid || !wrap) return;
+  const entries = computeFrequentEntries();
+  if (entries.length === 0) { wrap.style.display = 'none'; return; }
+  wrap.style.display = 'block';
+  window._quickEntries = entries;
+  grid.innerHTML = entries.map((e, i) => {
+    const icon = SUBCAT_ICONS[e.subcategoria] || CAT_ICONS[e.categoria] || '\u{1F4B0}';
+    return '<button type="button" class="quick-chip" onclick="useQuickEntry(' + i + ')">' +
+      '<span>' + icon + '</span>' +
+      '<span class="qc-amount">' + formatMoney(e.monto) + '</span>' +
+      '<span class="qc-sub">' + esc(e.subcategoria) + '</span>' +
+      '<span class="qc-count">×' + e.count + '</span>' +
+      '</button>';
+  }).join('');
+}
+
+function useQuickEntry(idx) {
+  const entries = window._quickEntries || [];
+  const e = entries[idx];
+  if (!e) return;
+  const fechaEl = document.getElementById('fecha');
+  if (!fechaEl.value) setDefaultDate();
+  document.getElementById('categoria').value = e.categoria;
+  updateSubcategories();
+  document.getElementById('subcategoria').value = e.subcategoria;
+  document.getElementById('monto').value = e.monto.toFixed(2);
+  const btn = document.getElementById('submit-btn');
+  if (btn) {
+    btn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    btn.classList.add('btn-pulse');
+    setTimeout(() => btn.classList.remove('btn-pulse'), 1400);
+  }
+}
+
+/* ══════════════════════════════════════
    TABS
    ══════════════════════════════════════ */
 function switchTab(tab) {
@@ -1534,6 +1660,7 @@ function handleSubmit(e) {
   const savedUser = localStorage.getItem('abundapp_default_user');
   if (savedUser) document.getElementById('usuario').value = savedUser;
   document.getElementById('subcategoria').innerHTML = '<option value="">Primero selecciona categoría</option>';
+  renderQuickEntries();
   return false;
 }
 
