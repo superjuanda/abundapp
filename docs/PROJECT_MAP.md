@@ -1,7 +1,7 @@
 # Abundapp — Project Map (AUTHORITATIVE)
 
 > Single source of truth for every piece of Abundapp.
-> Last verified: 2026-05-26 (post-deploy of Quick-Entry Chips — Fase 1.1 del roadmap 2026)
+> Last verified: 2026-05-27 (post-deploy of Budget Alert Banner — Fase 1.2 del roadmap 2026)
 > Master doc in Notion: https://www.notion.so/31dabb3a77da8065bc45ce9774759ffe
 
 ---
@@ -65,7 +65,7 @@ Claude / AI client → abundapp-mcp.juandavid-gomezdiaz.workers.dev/mcp → Apps
 Git repo on branch `main`, pushes to GitHub which auto-deploys to Cloudflare Pages.
 
 Key files:
-- `index.html` — the entire PWA (HTML/CSS/JS in one file, ~85KB). Tab Registro incluye desde Mayo 2026 un bloque "⚡ Entradas frecuentes" con chips de los combos `(categoría, subcategoría, monto)` más usados en los últimos 60 días (`computeFrequentEntries/renderQuickEntries/useQuickEntry`)
+- `index.html` — the entire PWA (HTML/CSS/JS in one file, ~85KB). Tab Registro incluye desde Mayo 2026: (a) bloque "⚡ Entradas frecuentes" con chips de los combos `(categoría, subcategoría, monto)` más usados en los últimos 60 días (`computeFrequentEntries/renderQuickEntries/useQuickEntry`), y (b) banner de alertas de presupuesto cuando una categoría cruza 50/75/85/90/100% (`computeBudgetAlerts/renderAlertBanner/dismissAlert`, descarte persistente en `localStorage['abundapp_dismissed_alerts_v1']`)
 - `sw.js` — service worker (offline)
 - `manifest.json` — PWA install metadata
 - `Abundapp.png`, `Abundapp_white.png`, `icons/` — branding
