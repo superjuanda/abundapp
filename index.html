@@ -259,6 +259,36 @@ header .header-text p{font-size:.8rem;opacity:.85;font-weight:500;line-height:1.
 @keyframes btnPulse{0%,100%{box-shadow:0 4px 14px rgba(76,175,80,.3)}50%{box-shadow:0 4px 22px rgba(76,175,80,.65)}}
 .btn-pulse{animation:btnPulse .6s ease-in-out 2}
 
+/* ── Alert banner (Registro tab) ── */
+.alert-banner{margin-bottom:1rem;display:flex;flex-direction:column;gap:.5rem}
+.alert-card{
+  background:var(--card);
+  border:1.5px solid var(--border);
+  border-left:4px solid;
+  border-radius:var(--radius-sm);
+  padding:.65rem .85rem;
+  display:flex;align-items:center;gap:.6rem;
+  box-shadow:var(--shadow);
+  animation:alertIn .25s ease;
+}
+@keyframes alertIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
+.alert-card.alert-yellow{border-left-color:#FFC107;background:#FFFDF5}
+.alert-card.alert-orange{border-left-color:#FF9800;background:#FFF8F1}
+.alert-card.alert-red{border-left-color:#E53935;background:#FFF5F5}
+.alert-icon{font-size:1.2rem;flex-shrink:0}
+.alert-body{flex:1;min-width:0}
+.alert-title{font-size:.82rem;font-weight:700;color:var(--text);line-height:1.2}
+.alert-msg{font-size:.7rem;color:var(--text-light);margin-top:2px;line-height:1.3}
+.alert-close{
+  background:transparent;border:none;
+  color:var(--text-light);
+  font-size:1rem;cursor:pointer;padding:.25rem .5rem;
+  border-radius:6px;flex-shrink:0;
+  -webkit-tap-highlight-color:transparent;
+  font-family:inherit;
+}
+.alert-close:active{background:rgba(0,0,0,.05);color:var(--text)}
+
 /* ── Month selector ── */
 .month-selector{
   display:flex;
@@ -831,6 +861,9 @@ header .header-text p{font-size:.8rem;opacity:.85;font-weight:500;line-height:1.
 
 <!-- ═══ TAB: REGISTRO ═══ -->
 <section id="tab-registro" class="section active">
+  <!-- ⚠️ Alertas de presupuesto: categorías que cruzaron 50/75/85/90/100% (descartables) -->
+  <div class="alert-banner" id="alert-banner" style="display:none"></div>
+
   <div class="form-card">
     <form id="expense-form" onsubmit="return handleSubmit(event)">
       <div class="form-row">
@@ -1285,6 +1318,8 @@ function init() {
   renderResumen();
   renderBacklog();
   renderQuickEntries();
+  loadBudgetCacheForBanner();
+  renderAlertBanner();
   updateSyncBadge();
   // Preseleccionar usuario desde localStorage (instantáneo, sin red).
   // Si nunca se ha guardado → mostrar prompt de primera vez.
@@ -1554,6 +1589,110 @@ function updateEditSubcategories(preselect) {
 }
 
 /* ══════════════════════════════════════
+   ALERTAS DE PRESUPUESTO (banner descartable)
+   Umbrales: 50 / 75 / 85 / 90 / 100% del presupuesto por categoría.
+   Datos: viene de getBudgetStatus (budgetData) — cacheado en localStorage.
+   Descarte persistente por (mes|categoría|umbral). Cuando la categoría
+   cruza al siguiente umbral, vuelve a aparecer.
+   ══════════════════════════════════════ */
+const BUDGET_ALERT_THRESHOLDS = [100, 90, 85, 75, 50]; // highest first
+const ALERT_DISMISS_KEY = 'abundapp_dismissed_alerts_v1';
+const ALERT_MAX_VISIBLE = 3;
+
+function getDismissedAlerts() {
+  try {
+    return new Set(JSON.parse(localStorage.getItem(ALERT_DISMISS_KEY) || '[]'));
+  } catch (e) { return new Set(); }
+}
+
+function saveDismissedAlerts(set) {
+  // Poda: solo conservar dismissals del mes actual y el anterior
+  const now = new Date();
+  const cur = now.getFullYear() + '-' + ('0' + (now.getMonth() + 1)).slice(-2);
+  const prevD = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const prev = prevD.getFullYear() + '-' + ('0' + (prevD.getMonth() + 1)).slice(-2);
+  const pruned = [...set].filter(k => k.startsWith(cur + '|') || k.startsWith(prev + '|'));
+  localStorage.setItem(ALERT_DISMISS_KEY, JSON.stringify(pruned));
+}
+
+function computeBudgetAlerts(bd) {
+  if (!bd || !bd.rows) return [];
+  const month = bd.month || '';
+  const catMap = {};
+  bd.rows.forEach(r => {
+    if (!r.category) return;
+    if (!catMap[r.category]) catMap[r.category] = { budget: 0, spent: 0 };
+    catMap[r.category].budget += (parseFloat(r.budget) || 0);
+    catMap[r.category].spent  += (parseFloat(r.spent)  || 0);
+  });
+  const dismissed = getDismissedAlerts();
+  const alerts = [];
+  Object.entries(catMap).forEach(([cat, d]) => {
+    if (d.budget <= 0) return;
+    const pct = d.spent / d.budget;
+    const pctInt = pct * 100;
+    const threshold = BUDGET_ALERT_THRESHOLDS.find(t => pctInt >= t);
+    if (!threshold) return;
+    const key = month + '|' + cat + '|' + threshold;
+    if (dismissed.has(key)) return;
+    alerts.push({ category: cat, percent: pct, threshold, spent: d.spent, budget: d.budget, key });
+  });
+  alerts.sort((a, b) => b.threshold - a.threshold || b.percent - a.percent);
+  return alerts.slice(0, ALERT_MAX_VISIBLE);
+}
+
+function renderAlertBanner() {
+  const banner = document.getElementById('alert-banner');
+  if (!banner) return;
+  const alerts = computeBudgetAlerts(typeof budgetData !== 'undefined' ? budgetData : null);
+  if (!alerts || alerts.length === 0) {
+    banner.style.display = 'none';
+    banner.innerHTML = '';
+    return;
+  }
+  window._activeAlerts = alerts;
+  banner.style.display = 'flex';
+  banner.innerHTML = alerts.map((a, i) => {
+    const icon = CAT_ICONS[a.category] || '⚠️';
+    const tone = a.threshold >= 90 ? 'red' : a.threshold >= 75 ? 'orange' : 'yellow';
+    const pctText = Math.round(a.percent * 100) + '%';
+    const message = a.threshold >= 100
+      ? 'Presupuesto rebasado'
+      : 'Alcanzó el ' + a.threshold + '% del presupuesto';
+    return '<div class="alert-card alert-' + tone + '">' +
+      '<div class="alert-icon">' + icon + '</div>' +
+      '<div class="alert-body">' +
+        '<div class="alert-title">' + esc(a.category) + ' · ' + pctText + '</div>' +
+        '<div class="alert-msg">' + message + ' · ' + formatMoney(a.spent) + ' / ' + formatMoney(a.budget) + '</div>' +
+      '</div>' +
+      '<button type="button" class="alert-close" onclick="dismissAlert(' + i + ')" aria-label="Descartar alerta">✕</button>' +
+    '</div>';
+  }).join('');
+}
+
+function dismissAlert(idx) {
+  const alerts = window._activeAlerts || [];
+  const a = alerts[idx];
+  if (!a) return;
+  const set = getDismissedAlerts();
+  set.add(a.key);
+  saveDismissedAlerts(set);
+  renderAlertBanner();
+}
+
+function loadBudgetCacheForBanner() {
+  // Lee el cache de presupuesto desde localStorage sin renderizar el tab Presupuestos.
+  // Permite que el banner de alertas aparezca al abrir la app, antes de visitar el tab.
+  try {
+    const cached = JSON.parse(localStorage.getItem('abundapp_budget_cache') || 'null');
+    if (cached && cached.success) {
+      budgetData = cached;
+      budgetLoaded = true;
+    }
+  } catch (e) {}
+}
+
+/* ══════════════════════════════════════
    QUICK ENTRIES (entradas frecuentes)
    Top combos (categoria, subcategoria, monto redondeado a $0.50)
    de los últimos 60 días. Tap pre-llena el form sin enviar.
@@ -1626,6 +1765,7 @@ function useQuickEntry(idx) {
 function switchTab(tab) {
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
   document.querySelectorAll('.section').forEach(s => s.classList.toggle('active', s.id === 'tab-' + tab));
+  if (tab === 'registro') renderAlertBanner();
   if (tab === 'historial') { renderHistory(); pullFromSheets(); }
   if (tab === 'resumen') renderResumen();
   if (tab === 'presupuestos') { if (!budgetLoaded) loadBudgetData(); else renderBudget(); }
@@ -2285,6 +2425,7 @@ async function loadBudgetData() {
       // Guardar en cache para uso offline
       localStorage.setItem('abundapp_budget_cache', JSON.stringify(data));
       renderBudget();
+      renderAlertBanner();
     } else {
       // Intentar cargar desde cache
       if (loadBudgetFromCache()) return;
@@ -2306,6 +2447,7 @@ function loadBudgetFromCache() {
       budgetData = cached;
       budgetLoaded = true;
       renderBudget();
+      renderAlertBanner();
       showToast('📊 Presupuestos cargados desde caché');
       return true;
     }
