@@ -1,7 +1,7 @@
 # Abundapp — Project Map (AUTHORITATIVE)
 
 > Single source of truth for every piece of Abundapp.
-> Last verified: 2026-05-27 (post-deploy of Fase 1.2 banner + SW v6 hotfix; PR #7 auto-load+v7 pending merge)
+> Last verified: 2026-05-27 (post-deploy de Fase 2.1 Resumen pro — Cash Flow + Pacing + Tendencia 6m + Insights; SW v8)
 > Master doc in Notion: https://www.notion.so/31dabb3a77da8065bc45ce9774759ffe
 
 ---
@@ -65,7 +65,7 @@ Claude / AI client → abundapp-mcp.juandavid-gomezdiaz.workers.dev/mcp → Apps
 Git repo on branch `main`, pushes to GitHub which auto-deploys to Cloudflare Pages.
 
 Key files:
-- `index.html` — the entire PWA (HTML/CSS/JS in one file, ~85KB). Tab Registro incluye desde Mayo 2026: (a) bloque "⚡ Entradas frecuentes" con chips de los combos `(categoría, subcategoría, monto)` más usados en los últimos 60 días (`computeFrequentEntries/renderQuickEntries/useQuickEntry`), y (b) banner de alertas de presupuesto cuando una categoría cruza 50/75/85/90/100% (`computeBudgetAlerts/renderAlertBanner/dismissAlert`, descarte persistente en `localStorage['abundapp_dismissed_alerts_v1']`)
+- `index.html` — the entire PWA (HTML/CSS/JS in one file, ~95KB). Tab Registro incluye desde Mayo 2026: (a) bloque "⚡ Entradas frecuentes" con chips de los combos `(categoría, subcategoría, monto)` más usados en los últimos 60 días (`computeFrequentEntries/renderQuickEntries/useQuickEntry`), y (b) banner de alertas de presupuesto cuando una categoría cruza 50/75/85/90/100% (`computeBudgetAlerts/renderAlertBanner/dismissAlert`, descarte persistente en `localStorage['abundapp_dismissed_alerts_v1']`). Tab Resumen incluye desde Mayo 27, 2026 (Fase 2.1): 4 dashboard cards (Cash Flow, Pacing, Tendencia 6m, Insights automáticos) que se muestran solo en el mes actual (`loadResumenDashboard/renderCashFlowCard/renderPacingCard/renderTrendCard/renderInsightsCard/generateInsights`), consumiendo `getDashboard` ya extendido en mayo
 - `sw.js` — service worker (offline)
 - `manifest.json` — PWA install metadata
 - `Abundapp.png`, `Abundapp_white.png`, `icons/` — branding
@@ -161,7 +161,7 @@ Dedicated Claude skill: **`/abundapp-health`**
 
 - Location: `~/.claude/skills/abundapp-health/`
 - What it does: runs ~23 checks (live app, backend, auth, repo, drift, Fase 1.1 + 1.2 features), writes a dated report, detects when new Apps Script actions or PWA features are added and prompts to extend coverage
-- Version 1.3.0 (2026-05-27) extends coverage with chips/banner checks and SW min version v6
+- Version 1.4.0 (2026-05-27) extends coverage with Fase 2.1 Resumen pro checks (cash flow / pacing / trend / insights cards + functions) and SW min version v8
 - Reports: `~/.claude/skills/abundapp-health/reports/YYYY-MM-DD-HHMM.md`
 - Baseline: `~/.claude/skills/abundapp-health/state.json`
 - Check registry: `~/.claude/skills/abundapp-health/checks.json`
